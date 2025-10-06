@@ -31,6 +31,9 @@ import AssignmentNotLinked from "./pages/AssignmentNotLinked";
 import AssignmentAlreadyLinked from "./pages/AssignmentAlreadyLinked";
 import SessionExpired from "./pages/SessionExpired";
 import { Posts } from "./pages/Posts/Posts";
+import AddCourse from "./pages/AddCourse";
+import AddProblem from "./pages/AddProblem";
+import EditProblem from "./pages/EditProblem";
 import loadFirebaseEnvConfig from "./util/loadFirebaseEnvConfig";
 import generateRandomInt from "./util/generateRandomInt";
 import { cleanObjectKeys } from "./util/cleanObject";
@@ -51,7 +54,87 @@ import BrowserStorage from "./util/browserStorage";
 
 loadFirebaseEnvConfig(config);
 
-let theme = createTheme();
+let theme = createTheme({
+    palette: {
+        type: 'light', // This enables dark mode
+        primary: {
+            main: '#1976d2', // Blue primary color
+            light: '#42a5f5',
+            dark: '#1565c0',
+        },
+        secondary: {
+            main: '#dc004e', // Pink/purple secondary color
+        },
+        background: {
+            default: '#121212', // Lighter dark background (was #121212)
+            paper: '#1e1e1e', // Lighter for cards/papers (was #1e1e1e)
+        },
+        text: {
+            primary: '#ffffff', // White text
+            secondary: '#b3b3b3', // Light gray for secondary text
+        },
+        divider: '#333333', // Dark dividers
+    },
+    overrides: {
+        MuiCard: {
+            root: {
+                backgroundColor: '#3a3a3a', // Lighter card background
+                color: '#ffffff', // White text on cards
+            },
+        },
+        MuiAppBar: {
+            root: {
+                backgroundColor: '#3a3a3a', // Lighter app bar
+                color: '#ffffff',
+            },
+        },
+        MuiButton: {
+            contained: {
+                backgroundColor: '#4a90e2', // Lighter blue for buttons
+                color: '#ffffff',
+                '&:hover': {
+                    backgroundColor: '#1976d2', // Original blue on hover
+                },
+            },
+            outlined: {
+                color: '#4a90e2', // Lighter blue for outlined buttons
+                borderColor: '#4a90e2',
+                backgroundColor: 'rgba(74, 144, 226, 0.1)', // Light background
+                '&:hover': {
+                    backgroundColor: 'rgba(74, 144, 226, 0.2)',
+                    borderColor: '#1976d2',
+                },
+            },
+        },
+        MuiTextField: {
+            root: {
+                '& .MuiInputBase-root': {
+                    color: '#ffffff',
+                },
+                '& .MuiInputLabel-root': {
+                    color: '#b3b3b3',
+                },
+                '& .MuiOutlinedInput-root': {
+                    '& fieldset': {
+                        borderColor: '#333333',
+                    },
+                    '&:hover fieldset': {
+                        borderColor: '#1976d2',
+                    },
+                    '&.Mui-focused fieldset': {
+                        borderColor: '#1976d2',
+                    },
+                },
+            },
+        },
+        MuiPaper: {
+            root: {
+                backgroundColor: '#3a3a3a',
+                color: '#ffffff',
+            },
+        },
+    },
+});
 theme = responsiveFontSizes(theme);
 
 const queryParamToContext = {
@@ -424,6 +507,36 @@ class App extends React.Component {
                                         path="/session-expired"
                                         render={(props) => (
                                             <SessionExpired
+                                                key={Date.now()}
+                                                {...props}
+                                            />
+                                        )}
+                                    />
+                                    <Route
+                                        exact
+                                        path="/add-course"
+                                        render={(props) => (
+                                            <AddCourse
+                                                key={Date.now()}
+                                                {...props}
+                                            />
+                                        )}
+                                    />
+                                    <Route
+                                        exact
+                                        path="/lessons/:lessonID/add-problem"
+                                        render={(props) => (
+                                            <AddProblem
+                                                key={Date.now()}
+                                                {...props}
+                                            />
+                                        )}
+                                    />
+                                    <Route
+                                        exact
+                                        path="/lessons/:lessonID/edit-problem/:problemID"
+                                        render={(props) => (
+                                            <EditProblem
                                                 key={Date.now()}
                                                 {...props}
                                             />

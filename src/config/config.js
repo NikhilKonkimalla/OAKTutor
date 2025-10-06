@@ -1,9 +1,36 @@
 import React from "react";
 import courses from "../content-sources/oatutor/coursePlans.json";
 import { calculateSemester } from "../util/calculateSemester.js";
-
 import { SITE_NAME } from "@common/global-config";
 import { cleanObjectKeys } from "../util/cleanObject";
+
+// Load custom courses from localStorage
+const getCustomCourses = () => {
+    try {
+        // Check if we're in a browser environment
+        if (typeof window !== 'undefined' && window.localStorage) {
+            const customCourses = localStorage.getItem('customCourses');
+            return customCourses ? JSON.parse(customCourses) : [];
+        }
+        return [];
+    } catch (error) {
+        console.warn('Error loading custom courses:', error);
+        return [];
+    }
+};
+
+// Function to get all courses (default + custom)
+const getAllCourses = () => {
+    const customCourses = getCustomCourses();
+    return [...courses, ...customCourses];
+};
+
+// Initial load
+const allCourses = getAllCourses();
+
+// Debug logging
+console.log('Total courses loaded:', allCourses.length);
+console.log('Custom courses:', getCustomCourses().length);
 
 const ThemeContext = React.createContext(0);
 const SITE_VERSION = "1.6";
@@ -97,32 +124,67 @@ const DYNAMIC_HINT_TEMPLATE =
     "<{problem_title}.> <{problem_subtitle}.> <{question_title}.> <{question_subtitle}.> <Student's answer is: {student_answer}.> <The correct answer is: {correct_answer}.> Please give a hint for this.";
 
 const MASTERY_THRESHOLD = 0.95;
-// const coursePlans = courses.sort((a, b) => a.courseName.localeCompare(b.courseName));
-const coursePlans = courses;
-const _coursePlansNoEditor = coursePlans.filter(({ editor }) => !!!editor);
 
-const lessonPlans = [];
-for (let i = 0; i < coursePlans.length; i++) {
-    const course = coursePlans[i];
-    for (let j = 0; j < course.lessons.length; j++) {
-        course.lessons[j].learningObjectives = cleanObjectKeys(
-            course.lessons[j].learningObjectives
-        );
-        lessonPlans.push({
-            ...course.lessons[j],
-            courseName: course.courseName,
-            courseOER: course.courseOER != null ? course.courseOER : "",
-            courseLicense:
-                course.courseLicense != null ? course.courseLicense : "",
-        });
+// Function to get course plans dynamically
+const getCoursePlans = () => {
+    return getAllCourses();
+};
+
+// Function to get lesson plans dynamically
+const getLessonPlans = () => {
+    const coursePlans = getCoursePlans();
+    const lessonPlans = [];
+    
+    for (let i = 0; i < coursePlans.length; i++) {
+        const course = coursePlans[i];
+        if (course.lessons) {
+            for (let j = 0; j < course.lessons.length; j++) {
+                course.lessons[j].learningObjectives = cleanObjectKeys(
+                    course.lessons[j].learningObjectives
+                );
+                lessonPlans.push({
+                    ...course.lessons[j],
+                    courseName: course.courseName,
+                    courseOER: course.courseOER != null ? course.courseOER : "",
+                    courseLicense:
+                        course.courseLicense != null ? course.courseLicense : "",
+                });
+            }
+        }
     }
-}
-const _lessonPlansNoEditor = lessonPlans.filter(
-    ({ courseName }) => !courseName.startsWith("!!")
-);
+    
+    return lessonPlans.filter(
+        ({ courseName }) => !courseName.startsWith("!!")
+    );
+};
+
+// Initial values
+const coursePlans = getCoursePlans();
+const _coursePlansNoEditor = coursePlans.filter(({ editor }) => !!!editor);
+const _lessonPlansNoEditor = getLessonPlans();
+
+const getCustomProblems = () => {
+    try {
+        if (typeof window !== 'undefined' && window.localStorage) {
+            const customProblems = localStorage.getItem('customProblems');
+            return customProblems ? JSON.parse(customProblems) : [];
+        }
+        return [];
+    } catch (error) {
+        console.warn('Error loading custom problems:', error);
+        return [];
+    }
+};
 
 const findLessonById = (ID) => {
-    return _lessonPlansNoEditor.find((lessonPlan) => lessonPlan.id === ID);
+    console.log('Looking for lesson ID:', ID);
+    const lessonPlans = getLessonPlans();
+    console.log('Total lesson plans:', lessonPlans.length);
+    console.log('Available lesson IDs:', lessonPlans.map(l => l.id));
+    console.log('All lesson plans:', lessonPlans);
+    const found = lessonPlans.find((lessonPlan) => lessonPlan.id === ID);
+    console.log('Found lesson:', found);
+    return found;
 };
 
 export {
@@ -134,10 +196,11 @@ export {
     AB_TEST_MODE,
     dynamicText,
     ENABLE_BOTTOM_OUT_HINTS,
-    lessonPlans,
     coursePlans,
     _lessonPlansNoEditor,
     _coursePlansNoEditor,
+    getCoursePlans,
+    getCustomProblems,
     MAX_BUFFER_SIZE,
     GRANULARITY,
     EQUATION_EDITOR_AUTO_COMMANDS,

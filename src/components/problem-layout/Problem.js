@@ -266,7 +266,10 @@ class Problem extends React.Component {
             const objectives = Object.keys(lesson.learningObjectives);
             objectives.unshift(0);
             let score = objectives.reduce((x, y) => {
-                return x + this.bktParams[y].probMastery;
+                if (this.bktParams[y] && this.bktParams[y].probMastery !== undefined) {
+                    return x + this.bktParams[y].probMastery;
+                }
+                return x;
             });
             score /= objectives.length - 1;
             //console.log(this.context.studentName + " " + score);
@@ -274,7 +277,9 @@ class Problem extends React.Component {
 
             const relevantKc = {};
             Object.keys(lesson.learningObjectives).forEach((x) => {
-                relevantKc[x] = this.bktParams[x].probMastery;
+                if (this.bktParams[x] && this.bktParams[x].probMastery !== undefined) {
+                    relevantKc[x] = this.bktParams[x].probMastery;
+                }
             });
 
             this.updateCanvas(score, relevantKc);
@@ -406,7 +411,7 @@ class Problem extends React.Component {
 	}
 
         oerLink = oerArray[0];
-        oerName = oerArray[1].substring(0, oerArray[1].length - 1);
+        oerName = oerArray[1] ? oerArray[1].substring(0, oerArray[1].length - 1) : "";
 
         try {
             if (problem.license != null && problem.license.includes(" ")) {
@@ -423,7 +428,7 @@ class Problem extends React.Component {
             licenseArray = ["", ""];
         }
         licenseLink = licenseArray[0];
-        licenseName = licenseArray[1].substring(0, licenseArray[1].length - 1);
+        licenseName = licenseArray[1] ? licenseArray[1].substring(0, licenseArray[1].length - 1) : "";
         return [oerLink, oerName, licenseLink, licenseName];
     };
 

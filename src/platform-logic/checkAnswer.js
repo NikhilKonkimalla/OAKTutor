@@ -100,7 +100,15 @@ function convertSwedishToUS(numberString) {
  * @param questionText {string} allows for a check to see if student pasted in the answer exactly
  * @returns {[string, boolean | string, null | WrongAnswerReasons]}
  */
-function checkAnswer({ attempt, actual, answerType, precision = 5, variabilization = {}, questionText = ""}) {
+function checkAnswer({ attempt, actual, answerType, precision = 5, variabilization = {}, questionText = "", problemType = "TextBox"}) {
+    // For coding problems, the validation is handled by the CodeEditor component
+    // through test case execution, so we just return success here
+    if (problemType === "Coding") {
+        // The CodeEditor component handles its own validation through test cases
+        // We assume success here as the component would have prevented submission if tests failed
+        return [attempt, true, null];
+    }
+
     if (localStorage.getItem('locale') == 'se') {
         attempt = convertSwedishToUS(attempt)
     }

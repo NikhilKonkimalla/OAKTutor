@@ -75,7 +75,9 @@ class ProblemCard extends React.Component {
         );
         this.hints = this.giveDynamicHint
             ? []
-            : JSON.parse(JSON.stringify(this.step.hints[context.hintPathway]));
+            : (this.step.hints && this.step.hints[context.hintPathway]) 
+                ? JSON.parse(JSON.stringify(this.step.hints[context.hintPathway]))
+                : [];
 
         for (let hint of this.hints) {
             hint.dependencies = hint.dependencies.map((dependency) =>
@@ -245,6 +247,7 @@ class ProblemCard extends React.Component {
             actual: stepAnswer,
             answerType: answerType,
             precision: precision,
+            problemType: this.step.problemType,
             variabilization: chooseVariables(
                 Object.assign({}, problemVars, variabilization),
                 seed
@@ -456,6 +459,7 @@ class ProblemCard extends React.Component {
             actual: this.step.stepAnswer,
             answerType: this.step.answerType,
             precision: this.step.precision,
+            problemType: this.step.problemType,
             variabilization: chooseVariables(
                 Object.assign(
                     {},

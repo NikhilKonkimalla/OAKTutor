@@ -1,0 +1,33 @@
+{
+  "id": "test-coding-1",
+  "title": "Python Hello World",
+  "body": "Write a Python function called 'solution' that prints 'Hello World' to the console.",
+  "variabilization": {},
+  "oer": "https://example.com",
+  "lesson": "test-lesson",
+  "courseName": "Custom Course",
+  "steps": [
+    {
+      "id": "test-coding-1a",
+      "stepAnswer": [],
+      "problemType": "Coding",
+      "stepTitle": "Write Hello World Function",
+      "stepBody": "Create a function called 'solution' that prints 'Hello World' when called.",
+      "answerType": "string",
+      "variabilization": {},
+      "language": "python",
+      "codeTemplate": "def solution():\n    # Your code here\n    pass",
+      "testCases": [
+        {
+          "input": "solution()",
+          "expectedOutput": "Hello World",
+          "description": "Basic Hello World test"
+        }
+      ],
+      "hints": {
+        "DefaultPathway": []
+      }
+    }
+  ]
+}
+

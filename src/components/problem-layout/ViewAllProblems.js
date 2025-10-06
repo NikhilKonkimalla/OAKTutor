@@ -4,7 +4,7 @@ import React, {
   useMemo,
   useContext,
 } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useHistory } from 'react-router-dom';
 import {
   AppBar,
   Toolbar,
@@ -14,14 +14,16 @@ import {
   Box,
   Typography,
   makeStyles,
+  Button,
 } from '@material-ui/core';
 import HelpOutlineOutlinedIcon from '@material-ui/icons/HelpOutlineOutlined';
+import AddIcon from '@material-ui/icons/Add';
 
 import BrandLogoNav from '@components/BrandLogoNav';
 import Popup from '@components/Popup/Popup';
 import About from '../../pages/Posts/About';
 import ProblemWrapper from '@components/problem-layout/ProblemWrapper';
-import { findLessonById, ThemeContext, SHOW_COPYRIGHT, SITE_NAME } from '../../config/config.js';
+import { findLessonById, ThemeContext, SHOW_COPYRIGHT, SITE_NAME, getCustomProblems } from '../../config/config.js';
 import { CONTENT_SOURCE } from '@common/global-config';
 import withTranslation from '../../util/withTranslation.js';
 
@@ -37,7 +39,6 @@ const useStyles = makeStyles(theme => ({
     padding: theme.spacing(4, 0),
   },
   problemCard: {
-    position: 'relative',  // allow absolute positioning of id badge
     marginBottom: theme.spacing(4),
   },
   noFooterWrapper: {
@@ -61,14 +62,6 @@ const useStyles = makeStyles(theme => ({
   spacer: {
     flexGrow: 1,
   },
-  idBadge: {
-    position: 'absolute',
-    top: theme.spacing(1),
-    right: theme.spacing(1),
-    backgroundColor: 'rgba(255,255,255,0.8)',
-    padding: theme.spacing(0.5, 1),
-    borderRadius: theme.shape.borderRadius,
-  },
 }));
 
 const BATCH_SIZE = 3;
@@ -76,10 +69,12 @@ const BATCH_SIZE = 3;
 const ViewAllProblems = ({ translate }) => {
   const classes = useStyles();
   const { lessonID } = useParams();
+  const history = useHistory();
   const context = useContext(ThemeContext);
 
   const [lesson, setLesson] = useState(null);
   const [problemPool, setProblemPool] = useState([]);
+  const [customProblems, setCustomProblems] = useState([]);
   const [filteredProblems, setFilteredProblems] = useState([]);
   const [visibleProblems, setVisibleProblems] = useState([]);
   const [showPopup, setShowPopup] = useState(false);
@@ -96,6 +91,12 @@ const ViewAllProblems = ({ translate }) => {
       .catch(console.error);
   }, []);
 
+  // Load custom problems
+  useEffect(() => {
+    const savedProblems = getCustomProblems();
+    setCustomProblems(savedProblems);
+  }, []);
+
   // Find lesson
   useEffect(() => {
     const found = findLessonById(lessonID);
@@ -104,15 +105,37 @@ const ViewAllProblems = ({ translate }) => {
 
   // Filter by objectives
   const memoFiltered = useMemo(() => {
-    if (!lesson || problemPool.length === 0) return [];
-    const pool = problemPool.filter(problem =>
-      problem.steps.some(step =>
-        (context.skillModel[step.id] || []).some(kc => kc in lesson.learningObjectives)
-      )
+    if (!lesson) {
+      console.log('No lesson found');
+      return [];
+    }
+    
+    console.log('Filtering problems for lesson:', lesson);
+    console.log('Problem pool length:', problemPool.length);
+    console.log('Custom problems length:', customProblems.length);
+    console.log('Lesson learning objectives:', lesson.learningObjectives);
+    
+    // Filter standard problems
+    const standardProblems = problemPool.length > 0 ? problemPool.filter(problem => {
+      if (!problem.steps) return false;
+      return problem.steps.some(step => {
+        if (!step.id || !context.skillModel) return false;
+        const skills = context.skillModel[step.id] || [];
+        return skills.some(kc => kc in (lesson.learningObjectives || {}));
+      });
+    }) : [];
+    
+    // Filter custom problems for this lesson
+    const customProblemsForLesson = customProblems.filter(problem =>
+      problem.lesson === lessonID
     );
-
-    return pool;
-  }, [lesson, problemPool, context.skillModel]);
+    
+    console.log('Standard problems found:', standardProblems.length);
+    console.log('Custom problems found:', customProblemsForLesson.length);
+    
+    // Combine both pools
+    return [...standardProblems, ...customProblemsForLesson];
+  }, [lesson, problemPool, customProblems, context.skillModel, lessonID]);
 
   useEffect(() => {
     setFilteredProblems(memoFiltered);
@@ -139,20 +162,30 @@ const ViewAllProblems = ({ translate }) => {
             <Grid item xs={6} style={{ textAlign: 'center' }}>
               {lesson?.name}{topicsText && `: ${topicsText}`}
             </Grid>
-            <Grid item xs={3} />
+            <Grid item xs={3} style={{ textAlign: 'right' }}>
+              <Button
+                variant="contained"
+                color="primary"
+                startIcon={<AddIcon />}
+                onClick={() => history.push(`/lessons/${lessonID}/add-problem`)}
+                style={{ 
+                  backgroundColor: '#4caf50',
+                  color: '#ffffff',
+                  '&:hover': {
+                    backgroundColor: '#45a049',
+                  }
+                }}
+              >
+                Add Problem
+              </Button>
+            </Grid>
           </Grid>
         </Toolbar>
       </AppBar>
 
       <Container maxWidth="lg" className={classes.container}>
-        {visibleProblems.length ? visibleProblems.map(problem => (
+        {visibleProblems.length > 0 ? visibleProblems.map(problem => (
           <Box key={problem.id} className={classes.problemCard}>
-            {/* ID badge */}
-            <Box className={classes.idBadge}>
-              <Typography variant="caption" color="textSecondary">
-                {problem.id}
-              </Typography>
-            </Box>
             <Box className={classes.noFooterWrapper}>
               <ProblemWrapper
                 autoScroll={false}
@@ -167,7 +200,14 @@ const ViewAllProblems = ({ translate }) => {
           </Box>
         )) : (
           <Box className={classes.loadingBox}>
-            <Typography>{translate('loadingProblems') || 'Loading problems…'}</Typography>
+            <Typography variant="h6" color="textSecondary" style={{ textAlign: 'center', marginTop: '50px' }}>
+              {problemPool.length === 0 && customProblems.length === 0 
+                ? 'Loading problems…' 
+                : 'No problems available for this lesson yet.'}
+            </Typography>
+            <Typography variant="body2" color="textSecondary" style={{ textAlign: 'center', marginTop: '10px' }}>
+              Click the "Add Problem" button above to create your first problem.
+            </Typography>
           </Box>
         )}
       </Container>

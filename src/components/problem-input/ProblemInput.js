@@ -4,6 +4,7 @@ import TextField from "@material-ui/core/TextField";
 import MultipleChoice from "./MultipleChoice";
 import GridInput from "./GridInput";
 import MatrixInput from "./MatrixInput";
+import CodeEditor from "./CodeEditor";
 import { renderText } from "../../platform-logic/renderText";
 import clsx from "clsx";
 import "mathlive";
@@ -143,8 +144,8 @@ class ProblemInput extends React.Component {
         return (
             <Grid container spacing={0} justifyContent="center" alignItems="center"
                 className={clsx(disableInput && 'disable-interactions')}>
-                <Grid item xs={1} md={problemType === "TextBox" ? 4 : false}/>
-                <Grid item xs={9} md={problemType === "TextBox" ? 3 : 12}>
+                <Grid item xs={1} md={problemType === "TextBox" ? 4 : (problemType === "Coding" ? 1 : false)}/>
+                <Grid item xs={9} md={problemType === "TextBox" ? 3 : (problemType === "Coding" ? 10 : 12)}>
                     {(problemType === "TextBox" && this.props.step.answerType !== "string") && (
                         <math-field
                             ref={this.mathFieldRef}
@@ -244,13 +245,25 @@ class ProblemInput extends React.Component {
                             } : {}}
                         />
                     )}
+                    {problemType === "Coding" && (
+                        <CodeEditor
+                            step={this.props.step}
+                            setInputValState={this.props.setInputValState}
+                            index={index}
+                            classes={this.props.classes}
+                            onValidationReady={(validateFunc) => {
+                                // Store validation function for later use
+                                this.codingValidation = validateFunc;
+                            }}
+                        />
+                    )}
                 </Grid>
                 <Grid item xs={2} md={1}>
                     <div style={{ marginLeft: "20%" }}>
                         {units && renderText(units, this.context.problemID, variabilization, this.context)}
                     </div>
                 </Grid>
-                <Grid item xs={false} md={problemType === "TextBox" ? 3 : false}/>
+                <Grid item xs={false} md={problemType === "TextBox" ? 3 : (problemType === "Coding" ? 1 : false)}/>
             </Grid>
         )
     }

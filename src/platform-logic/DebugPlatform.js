@@ -155,8 +155,11 @@ class DebugPlatform extends React.Component {
                     // Multiply all the mastery priors
                     if (!(kc in context.bktParams)) {
                         console.log("Missing BKT parameter: " + kc);
+                        continue;
                     }
-                    probMastery *= context.bktParams[kc].probMastery;
+                    if (context.bktParams[kc] && context.bktParams[kc].probMastery !== undefined) {
+                        probMastery *= context.bktParams[kc].probMastery;
+                    }
                 }
             }
             if (isRelevant) {

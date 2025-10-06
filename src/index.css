@@ -3,10 +3,14 @@ body {
     padding: 0;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    background-color: #7399eb; /* Lighter dark background */
+    color: #ffffff; /* White text */
 }
 
 html, body, #root, .Router, .Router > * {
     min-height: 100vh;
+    background-color: #7eabff; /* Ensure lighter dark background throughout */
+    color: #ffffff; /* Ensure white text throughout */
 }
 
 footer {
@@ -45,7 +49,7 @@ blockquote {
     position: relative;
     margin: -0.4em 1em 1.4em;
     padding: 0.6em 0.8em 0.6em 1em;
-    color: rgb(100, 100, 100);
+    color: #b3b3b3; /* Light gray for dark theme */
 }
 
 blockquote:before {
@@ -57,7 +61,7 @@ blockquote:before {
     content: "";
     width: 4px;
     border-radius: 8px;
-    background: rgb(180, 184, 188);
+    background: #1976d2; /* Blue accent for dark theme */
 }
 
 .Toastify__toast-container--top-right {

@@ -7,7 +7,7 @@ import Paper from '@material-ui/core/Paper';
 import { withStyles } from '@material-ui/core/styles';
 import styles from './common-styles.js';
 import IconButton from '@material-ui/core/IconButton';
-import { _coursePlansNoEditor, ThemeContext, SITE_NAME, SHOW_COPYRIGHT } from '../../config/config.js';
+import { _coursePlansNoEditor, ThemeContext, SITE_NAME, SHOW_COPYRIGHT, getCoursePlans } from '../../config/config.js';
 import Spacer from "../Spacer";
 import HelpOutlineOutlinedIcon from "@material-ui/icons/HelpOutlineOutlined";
 import { Typography } from "@material-ui/core";
@@ -17,6 +17,8 @@ import withTranslation from "../../util/withTranslation.js";
 import Popup from '../Popup/Popup.js';
 import About from '../../pages/Posts/About.js';
 import MenuBookIcon from '@material-ui/icons/MenuBook';
+import AddIcon from '@material-ui/icons/Add';
+import StarIcon from '@material-ui/icons/Star';
 
 class LessonSelection extends React.Component {
     static contextType = ThemeContext;
@@ -25,11 +27,11 @@ class LessonSelection extends React.Component {
         super(props);
         const { courseNum, setLanguage } = this.props;
 
-        if (courseNum == 6) {
+        if (courseNum === 6) {
             setLanguage('se')
         } 
         
-        if (props.history.location.pathname == '/') {
+        if (props.history.location.pathname === '/') {
             const defaultLocale = localStorage.getItem('defaultLocale');
             setLanguage(defaultLocale)
         }
@@ -37,7 +39,7 @@ class LessonSelection extends React.Component {
         this.user = context.user || {}
         this.isPrivileged = !!this.user.privileged
 
-        this.coursePlans = _coursePlansNoEditor;
+        this.coursePlans = getCoursePlans().filter(({ editor }) => !!!editor);
         this.togglePopup = this.togglePopup.bind(this);
 
         this.state = {
@@ -88,14 +90,36 @@ class LessonSelection extends React.Component {
                         <Box width="75%" maxWidth={1500} role={"main"}>
                             <center>
                                 {this.isPrivileged
-                                    ? <h1>{translate('lessonSelection.welcomeInstructor')}</h1>
-                                    : <h1>{translate('lessonSelection.welcomeTo')} {SITE_NAME.replace(/\s/, "")}!</h1>
+                                    ? <h1 style={{ color: '#666666' }}>{translate('lessonSelection.welcomeInstructor')}</h1>
+                                    : <h1 style={{ color: '#666666' }}>{translate('lessonSelection.welcomeTo')} {SITE_NAME.replace(/\s/, "")}!</h1>
                                 }
 
-                                <h2>{translate('lessonSelection.select')} {selectionMode === "course" ? translate('lessonSelection.course') : translate('lessonSelection.lessonplan')}</h2>
+                                <h2 style={{ color: '#666666' }}>{translate('lessonSelection.select')} {selectionMode === "course" ? translate('lessonSelection.course') : translate('lessonSelection.lessonplan')}</h2>
                                 {this.isPrivileged
                                     && <h4>(for {this.user.resource_link_title})</h4>
                                 }
+                                {selectionMode === "course" && (
+                                    <Box mb={3}>
+                                        <Button
+                                            variant="contained"
+                                            color="primary"
+                                            startIcon={<AddIcon />}
+                                            onClick={() => this.props.history.push('/add-course')}
+                                            style={{
+                                                backgroundColor: '#1976d2',
+                                                color: '#ffffff',
+                                                padding: '12px 24px',
+                                                fontSize: '16px',
+                                                borderRadius: '8px',
+                                                boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                                                textTransform: 'none',
+                                                fontWeight: '600'
+                                            }}
+                                        >
+                                            Add New Course
+                                        </Button>
+                                    </Box>
+                                )}
                                 {
                                     IS_STAGING_OR_DEVELOPMENT && <BuildTimeIndicator/>
                                 }
@@ -108,7 +132,23 @@ class LessonSelection extends React.Component {
                                         .map((course, i) =>
                                             <Grid item xs={12} sm={6} md={4} key={course.courseName}>
                                                 <center>
-                                                    <Paper className={classes.paper}>
+                                                    <Paper className={classes.paper} style={{ position: 'relative' }}>
+                                                        {/* Custom course indicator */}
+                                                        {course.id && course.id.startsWith('course_') && (
+                                                            <div style={{
+                                                                position: 'absolute',
+                                                                top: 8,
+                                                                right: 8,
+                                                                backgroundColor: '#ffc107',
+                                                                borderRadius: '50%',
+                                                                padding: '4px',
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                justifyContent: 'center'
+                                                            }}>
+                                                                <StarIcon style={{ fontSize: 16, color: '#ffffff' }} />
+                                                            </div>
+                                                        )}
                                                         <h2 style={{
                                                             marginTop: "5px",
                                                             marginBottom: "10px"
@@ -152,7 +192,11 @@ class LessonSelection extends React.Component {
           variant="contained"
           color="primary"
           className={classes.button}
-          onClick={() => this.props.history.push(`/lessons/${lesson.id}`)}
+          onClick={() => {
+            console.log('Clicking lesson:', lesson);
+            console.log('Lesson ID:', lesson.id);
+            this.props.history.push(`/lessons/${lesson.id}/problems`)
+          }}
         >
           {translate('lessonSelection.onlyselect')}
         </Button>

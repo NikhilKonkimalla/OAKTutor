@@ -1,5 +1,8 @@
 .App {
   text-align: center;
+  background-color: #5145ff; /* Lighter dark background */
+  color: #ffffff; /* White text */
+  min-height: 100vh;
 }
 
 div.sticky {
@@ -9,11 +12,11 @@ div.sticky {
 }
 
 a[type=menu] {
-  color: #FFF;
+  color: #ffffff;
 }
 
 a:hover[type=menu] {
-  color: rgb(209, 209, 209)
+  color: #42a5f5; /* Light blue for hover in dark theme */
 }
 
 a:link[type=menu] {
