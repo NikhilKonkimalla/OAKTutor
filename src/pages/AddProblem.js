@@ -10,7 +10,6 @@ import {
     Card, 
     CardContent,
     IconButton,
-    Chip,
     makeStyles,
     FormControl,
     InputLabel,
@@ -216,12 +215,6 @@ const AddProblem = () => {
         }));
     };
 
-    const handleHintChange = (field, value) => {
-        setCurrentHint(prev => ({
-            ...prev,
-            [field]: value
-        }));
-    };
 
     const addStep = () => {
         if (!currentStep.stepTitle.trim()) {
@@ -281,43 +274,6 @@ const AddProblem = () => {
             ...prev,
             steps: prev.steps.filter((_, i) => i !== index)
         }));
-    };
-
-    const addHint = (stepIndex) => {
-        if (!currentHint.title.trim() || !currentHint.text.trim()) {
-            alert('Please enter hint title and text');
-            return;
-        }
-        
-        const hintId = currentHint.id || `${problemData.steps[stepIndex].id}_h${(problemData.steps[stepIndex].hints || []).length + 1}`;
-        const newHint = {
-            ...currentHint,
-            id: hintId,
-            hintAnswer: Array.isArray(currentHint.hintAnswer) ? currentHint.hintAnswer : [currentHint.hintAnswer],
-            choices: currentHint.problemType === 'MultipleChoice' ? 
-                (Array.isArray(currentHint.choices) ? currentHint.choices : [currentHint.choices]) : []
-        };
-        
-        setProblemData(prev => ({
-            ...prev,
-            steps: prev.steps.map((step, i) => 
-                i === stepIndex 
-                    ? { ...step, hints: [...(step.hints || []), newHint] }
-                    : step
-            )
-        }));
-        
-        setCurrentHint({
-            id: '',
-            title: '',
-            text: '',
-            type: 'hint',
-            dependencies: [],
-            hintAnswer: [],
-            problemType: 'TextBox',
-            answerType: 'string',
-            choices: []
-        });
     };
 
     const removeHint = (stepIndex, hintIndex) => {
@@ -654,23 +610,25 @@ const AddProblem = () => {
                                         InputLabelProps={{ shrink: true }}
                                     />
                                 </Grid>
-                                <Grid item xs={12}>
-                        <TextField
-                            fullWidth
-                            required
-                            multiline
-                            rows={3}
-                            label="Step Answer * (comma-separated for multiple answers)"
-                            value={Array.isArray(currentStep.stepAnswer) ? currentStep.stepAnswer.join(', ') : (currentStep.stepAnswer || '')}
-                            onChange={(e) => {
-                                const value = e?.target?.value || '';
-                                handleStepChange('stepAnswer', value);
-                            }}
-                            className={classes.textField}
-                            InputLabelProps={{ shrink: true }}
-                            helperText="Enter the correct answer(s) for this step. Use commas to separate multiple answers."
-                        />
-                                </Grid>
+                                {currentStep.problemType !== 'Coding' && (
+                                    <Grid item xs={12}>
+                                        <TextField
+                                            fullWidth
+                                            required
+                                            multiline
+                                            rows={3}
+                                            label="Step Answer * (comma-separated for multiple answers)"
+                                            value={Array.isArray(currentStep.stepAnswer) ? currentStep.stepAnswer.join(', ') : (currentStep.stepAnswer || '')}
+                                            onChange={(e) => {
+                                                const value = e?.target?.value || '';
+                                                handleStepChange('stepAnswer', value);
+                                            }}
+                                            className={classes.textField}
+                                            InputLabelProps={{ shrink: true }}
+                                            helperText="Enter the correct answer(s) for this step. Use commas to separate multiple answers."
+                                        />
+                                    </Grid>
+                                )}
                                 {currentStep.problemType === 'MultipleChoice' && (
                                     <Grid item xs={12}>
                                         <TextField
@@ -731,8 +689,8 @@ const AddProblem = () => {
                                             }}
                                                 className={classes.textField}
                                                 InputLabelProps={{ shrink: true }}
-                                                helperText="Enter test cases in JSON format. Example: [{'input': 'solution()', 'expectedOutput': 'Hello World', 'description': 'Basic test'}]"
-                                                placeholder='[{"input": "solution()", "expectedOutput": "Hello World", "description": "Basic test"}]'
+                                                helperText="Enter test cases in JSON format. Use N/A for input if no parameters needed. Example: [{'input': 'N/A', 'expectedOutput': 'Hello World'}] or [{'input': 'solution()', 'expectedOutput': 'Hello World'}]"
+                                                placeholder='[{"input": "N/A", "expectedOutput": "Hello World"}]'
                                             />
                                         </Grid>
                                     </>

@@ -19,7 +19,6 @@ import {
 import {
     DYNAMIC_HINT_URL,
     DYNAMIC_HINT_TEMPLATE,
-    ENABLE_BOTTOM_OUT_HINTS,
     ThemeContext,
 } from "../../config/config.js";
 
@@ -28,6 +27,7 @@ import ProblemInput from "../problem-input/ProblemInput";
 import Spacer from "../Spacer";
 import { stagingProp } from "../../util/addStagingProperty";
 import ErrorBoundary from "../ErrorBoundary";
+import DynamicHintButton from "./DynamicHintButton";
 import {
     toastNotifyCompletion,
     toastNotifyCorrectness, toastNotifyEmpty
@@ -43,9 +43,14 @@ class ProblemCard extends React.Component {
         super(props);
         //console.log("problem lesson props:", props);
 
-        this.translate = props.translate
+        this.translate = props.translate || (() => '');
         this.step = props.step;
         this.index = props.index;
+        
+        // Guard against missing step
+        if (!this.step) {
+            console.error('ProblemCard: step is undefined');
+        }
         this.giveStuFeedback = props.giveStuFeedback;
         this.giveStuHints = props.giveStuHints;
         this.unlockFirstHint = props.unlockFirstHint;
@@ -71,24 +76,49 @@ class ProblemCard extends React.Component {
             "showHints",
             this.showHints,
             "hintPathway",
-            context.hintPathway
+            context && context.hintPathway
         );
-        this.hints = this.giveDynamicHint
-            ? []
-            : (this.step.hints && this.step.hints[context.hintPathway]) 
-                ? JSON.parse(JSON.stringify(this.step.hints[context.hintPathway]))
-                : [];
+        // Safely extract hints, ensuring it's always an array
+        let hintsArray = [];
+        if (!this.giveDynamicHint && this.step && this.step.hints) {
+            const hintPathway = (context && context.hintPathway) || 'DefaultPathway';
+            const hintsForPathway = this.step.hints[hintPathway];
+            if (Array.isArray(hintsForPathway)) {
+                try {
+                    hintsArray = JSON.parse(JSON.stringify(hintsForPathway));
+                } catch (e) {
+                    console.warn('Error parsing hints:', e);
+                    hintsArray = [];
+                }
+            } else if (hintsForPathway && typeof hintsForPathway === 'object') {
+                // Handle case where hints might be nested incorrectly
+                console.warn('Hints structure is not an array, attempting to fix...');
+                hintsArray = [];
+            }
+        }
+        this.hints = hintsArray;
 
         for (let hint of this.hints) {
-            hint.dependencies = hint.dependencies.map((dependency) =>
-                this._findHintId(this.hints, dependency)
-            );
-            if (hint.subHints) {
+            // Safely handle dependencies
+            if (hint.dependencies && Array.isArray(hint.dependencies)) {
+                hint.dependencies = hint.dependencies.map((dependency) =>
+                    this._findHintId(this.hints, dependency)
+                );
+            } else {
+                hint.dependencies = [];
+            }
+            
+            // Safely handle subHints
+            if (hint.subHints && Array.isArray(hint.subHints)) {
                 for (let subHint of hint.subHints) {
-                    subHint.dependencies = subHint.dependencies.map(
-                        (dependency) =>
-                            this._findHintId(hint.subHints, dependency)
-                    );
+                    if (subHint.dependencies && Array.isArray(subHint.dependencies)) {
+                        subHint.dependencies = subHint.dependencies.map(
+                            (dependency) =>
+                                this._findHintId(hint.subHints, dependency)
+                        );
+                    } else {
+                        subHint.dependencies = [];
+                    }
                 }
             }
         }
@@ -96,13 +126,18 @@ class ProblemCard extends React.Component {
         // Bottom out hints option
         if (
             this.giveStuBottomHint &&
-            !(context.debug && context["use_expanded_view"])
+            !(context && context.debug && context["use_expanded_view"])
         ) {
             // Bottom out hints
+            const stepAnswerStr = this.step.stepAnswer 
+                ? (Array.isArray(this.step.stepAnswer) 
+                    ? this.step.stepAnswer.join(', ') 
+                    : String(this.step.stepAnswer))
+                : '';
             this.hints.push({
                 id: this.step.id + "-h" + (this.hints.length + 1),
                 title: this.translate('hintsystem.answer'),
-                text: this.translate('hintsystem.answerIs') + this.step.stepAnswer,
+                text: this.translate('hintsystem.answerIs') + stepAnswerStr,
                 type: "bottomOut",
                 dependencies: Array.from(Array(this.hints.length).keys()),
             });
@@ -112,6 +147,9 @@ class ProblemCard extends React.Component {
                     if (hint.subHints == null) {
                         hint.subHints = [];
                     }
+                    const hintAnswerStr = hint.hintAnswer && Array.isArray(hint.hintAnswer) && hint.hintAnswer.length > 0
+                        ? hint.hintAnswer[0]
+                        : '';
                     hint.subHints.push({
                         id:
                             this.step.id +
@@ -120,7 +158,7 @@ class ProblemCard extends React.Component {
                             "-s" +
                             (hint.subHints.length + 1),
                         title: this.translate('hintsystem.answer'),
-                        text: this.translate('hintsystem.answerIs') + hint.hintAnswer[0],
+                        text: this.translate('hintsystem.answerIs') + hintAnswerStr,
                         type: "bottomOut",
                         dependencies: Array.from(
                             Array(hint.subHints.length).keys()
@@ -133,9 +171,9 @@ class ProblemCard extends React.Component {
 
         this.state = {
             inputVal: "",
-            isCorrect: context.use_expanded_view && context.debug ? true : null,
+            isCorrect: (context && context.use_expanded_view && context.debug) ? true : null,
             checkMarkOpacity:
-                context.use_expanded_view && context.debug ? "100" : "0",
+                (context && context.use_expanded_view && context.debug) ? "100" : "0",
             displayHints: false,
             hintsFinished: new Array(this.hints.length).fill(0),
             equation: "",
@@ -222,7 +260,7 @@ class ProblemCard extends React.Component {
         }
     }
 
-    submit = () => {
+    submit = async () => {
         console.debug("submitting problem");
         const { inputVal, hintsFinished } = this.state;
         const {
@@ -237,25 +275,57 @@ class ProblemCard extends React.Component {
         const { seed, problemVars, problemID, courseName, answerMade, lesson } =
             this.props;
 
-        if (inputVal == '') {
+        if (inputVal === '') {
             toastNotifyEmpty(this.translate)
             return;
         }
 
-        const [parsed, correctAnswer, reason] = checkAnswer({
-            attempt: inputVal,
-            actual: stepAnswer,
-            answerType: answerType,
-            precision: precision,
-            problemType: this.step.problemType,
-            variabilization: chooseVariables(
-                Object.assign({}, problemVars, variabilization),
-                seed
-            ),
-            questionText: stepBody.trim() || stepTitle.trim(),
-        });
+        // For coding problems, use the CodeEditor's validation function
+        let isCorrect = false;
+        let parsed = inputVal;
+        let reason = null;
+        
+        if (this.step.problemType === 'Coding' && this.codingValidation) {
+            // Run test cases and validate
+            try {
+                isCorrect = await this.codingValidation();
+                parsed = inputVal;
+                // If validation fails, provide a reason
+                if (!isCorrect) {
+                    reason = "One or more test cases failed. Please check your code output against the expected results.";
+                }
+            } catch (error) {
+                console.error('Error validating coding problem:', error);
+                isCorrect = false;
+                reason = "Error running test cases. Please try again.";
+            }
+        } else {
+            // For non-coding problems, use the standard checkAnswer
+            const [parsedResult, correctAnswer, reasonResult] = checkAnswer({
+                attempt: inputVal,
+                actual: stepAnswer,
+                answerType: answerType,
+                precision: precision,
+                problemType: this.step.problemType,
+                variabilization: chooseVariables(
+                    Object.assign({}, problemVars, variabilization),
+                    seed
+                ),
+                questionText: stepBody.trim() || stepTitle.trim(),
+            });
+            
+            parsed = parsedResult;
+            isCorrect = !!correctAnswer;
+            reason = reasonResult;
+        }
 
-        const isCorrect = !!correctAnswer;
+        // Flush keystroke buffer before logging answer submission
+        if (this.context.firebase && this.context.firebase.flushKeystrokeBuffer) {
+            console.log("🔄 Flushing keystroke buffer on answer submit");
+            this.context.firebase.flushKeystrokeBuffer(problemID, this.step.id);
+        } else {
+            console.warn("⚠️ Cannot flush keystroke buffer - Firebase not available");
+        }
 
         this.context.firebase.log(
             parsed,
@@ -454,7 +524,7 @@ class ProblemCard extends React.Component {
             lastAIHintHash: currentHash,
         });
     
-        const [parsed, correctAnswer, reason] = checkAnswer({
+        const [parsed, correctAnswer] = checkAnswer({
             attempt: this.state.inputVal,
             actual: this.step.stepAnswer,
             answerType: this.step.answerType,
@@ -503,9 +573,15 @@ class ProblemCard extends React.Component {
             })
             console.error("Error generating AI hint:", error);
         
-            this.hints = JSON.parse(
-                JSON.stringify(this.step.hints[this.context.hintPathway])
-            );
+            // Safely extract hints, ensuring it's always an array
+            const hintPathway = this.context.hintPathway || 'DefaultPathway';
+            const hintsForPathway = this.step.hints[hintPathway];
+            if (Array.isArray(hintsForPathway)) {
+                this.hints = JSON.parse(JSON.stringify(hintsForPathway));
+            } else {
+                console.warn('Hints structure is not an array in componentDidUpdate, resetting to empty array');
+                this.hints = [];
+            }
             for (let hint of this.hints) {
                 hint.dependencies = hint.dependencies.map((dependency) =>
                     this._findHintId(this.hints, dependency)
@@ -640,6 +716,36 @@ class ProblemCard extends React.Component {
                         )}
                         <hr />
                     </h2>
+
+                    {/* Dynamic Hint Button */}
+                    {this.step && (
+                        <DynamicHintButton
+                            userAnswer={this.state.inputVal || ''}
+                            correctAnswer={
+                                this.step.problemType === 'Coding' 
+                                    ? (this.step.testCases || [])
+                                    : (this.step.stepAnswer || '')
+                            }
+                            problemStatement={
+                                (this.problemTitle || '') + 
+                                (this.problemSubTitle ? ' ' + this.problemSubTitle : '')
+                            }
+                            stepStatement={
+                                (this.step.stepTitle || '') + 
+                                (this.step.stepBody ? ' ' + this.step.stepBody : '')
+                            }
+                            lessonContext={
+                                (this.props.courseName || '') + 
+                                (this.props.lesson?.name ? ' > ' + this.props.lesson.name : '') +
+                                (this.props.lesson?.topics ? ': ' + this.props.lesson.topics : '')
+                            }
+                            problemType={this.step.problemType || 'TextBox'}
+                            problemID={this.props.problemID}
+                            stepID={this.step.id}
+                            courseName={this.props.courseName}
+                            lesson={this.props.lesson?.name || this.props.lesson}
+                        />
+                    )}
 
                     <div className={classes.stepBody}>
                         {renderText(

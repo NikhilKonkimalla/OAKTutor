@@ -43,7 +43,8 @@ import TabFocusTrackerWrapper from "./components/TabFocusTrackerWrapper";
 import ViewAllProblems from "./components/problem-layout/ViewAllProblems";
 
 // ### BEGIN CUSTOMIZABLE IMPORTS ###
-import config from "./config/firebaseConfig.js";
+import config, { analytics } from "./config/firebaseConfig.js";
+import { logEvent } from "firebase/analytics";
 import skillModel from "./content-sources/oatutor/skillModel.json";
 import defaultBKTParams from "./content-sources/oatutor/bkt-params/defaultBKTParams.json";
 import experimentalBKTParams from "./content-sources/oatutor/bkt-params/experimentalBKTParams.json";
@@ -208,19 +209,87 @@ class App extends React.Component {
             });
 
             if (additionalContext?.jwt) {
-                const user = parseJwt(additionalContext.jwt);
-                additionalContext["user"] = user;
-                additionalContext["studentName"] = user.full_name;
+                try {
+                    const user = parseJwt(additionalContext.jwt);
+                    additionalContext["user"] = user;
+                    additionalContext["studentName"] = user?.full_name || "";
+                } catch (jwtError) {
+                    console.error("Failed to parse JWT:", jwtError);
+                    // Continue without user context if JWT parsing fails
+                }
             }
 
-            // Firebase creation
-            this.firebase = new Firebase(
-                this.userID,
-                config,
-                this.getTreatment(),
-                SITE_VERSION,
-                additionalContext.user
-            );
+            // Firebase creation with error handling
+            try {
+                this.firebase = new Firebase(
+                    this.userID,
+                    config,
+                    this.getTreatment(),
+                    SITE_VERSION,
+                    additionalContext.user
+                );
+                
+                // Verify Firebase is properly initialized
+                if (this.firebase && this.firebase.db && this.firebase.submitSiteLog) {
+                    console.log("✅ Firebase initialized successfully, attempting to log site visit...");
+                    
+                    // Log site visit to Firestore
+                    this.firebase.submitSiteLog(
+                        "site-visit",
+                        "User visited the webapp",
+                        {
+                            url: window.location.href,
+                            path: window.location.pathname,
+                            userAgent: navigator.userAgent,
+                            screenWidth: window.screen.width,
+                            screenHeight: window.screen.height,
+                            viewportWidth: window.innerWidth,
+                            viewportHeight: window.innerHeight,
+                        }
+                    ).then(() => {
+                        console.log("✅ Site visit logged to Firestore successfully!");
+                    }).catch((logError) => {
+                        console.error("❌ Failed to log site visit to Firestore:", logError);
+                        console.error("Error details:", {
+                            code: logError?.code,
+                            message: logError?.message
+                        });
+                    });
+                    
+                    // Also log to Firebase Analytics for active user tracking
+                    if (analytics) {
+                        try {
+                            logEvent(analytics, 'page_view', {
+                                page_path: window.location.pathname,
+                                page_title: document.title
+                            });
+                            logEvent(analytics, 'site_visit', {
+                                user_id: this.userID
+                            });
+                            console.log("✅ Site visit logged to Analytics successfully!");
+                        } catch (analyticsError) {
+                            console.warn("⚠️ Failed to log to Analytics:", analyticsError);
+                        }
+                    }
+                } else {
+                    console.error("❌ Firebase initialized but methods not available:", {
+                        hasFirebase: !!this.firebase,
+                        hasDb: !!(this.firebase && this.firebase.db),
+                        hasSubmitSiteLog: !!(this.firebase && this.firebase.submitSiteLog),
+                        firebaseType: typeof this.firebase,
+                        firebaseKeys: this.firebase ? Object.keys(this.firebase) : []
+                    });
+                }
+            } catch (firebaseError) {
+                console.error("Failed to initialize Firebase:", firebaseError);
+                console.error("Firebase config:", {
+                    projectId: config?.projectId,
+                    authDomain: config?.authDomain,
+                    hasApiKey: !!config?.apiKey
+                });
+                // Set firebase to null if initialization fails
+                this.firebase = null;
+            }
 
             let targetLocation = window.location.href.split("?")[0];
 
@@ -270,6 +339,24 @@ class App extends React.Component {
 
     componentDidMount() {
         this.mounted = true;
+        
+        // Expose Firebase instance to window for debugging (development only)
+        if (IS_STAGING_OR_DEVELOPMENT && this.firebase) {
+            window.firebaseDebug = {
+                firebase: this.firebase,
+                testLog: () => {
+                    if (this.firebase && this.firebase.submitSiteLog) {
+                        console.log("🧪 Testing Firebase log...");
+                        return this.firebase.submitSiteLog("test", "Manual test log", {test: true})
+                            .then(() => console.log("✅ Test log successful!"))
+                            .catch(err => console.error("❌ Test log failed:", err));
+                    } else {
+                        console.error("❌ Firebase not available for testing");
+                    }
+                }
+            };
+            console.log("🔧 Firebase debug tools available. Use window.firebaseDebug.testLog() to test logging.");
+        }
     }
 
     componentWillUnmount() {

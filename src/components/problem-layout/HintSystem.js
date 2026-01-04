@@ -111,7 +111,7 @@ class HintSystem extends React.Component {
                 this.context.firebase.log(
                     null,
                     this.props.problemID,
-                    this.step,
+                    this.props.step,
                     null,
                     null,
                     this.state.subHintsFinished,

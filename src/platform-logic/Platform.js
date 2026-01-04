@@ -91,7 +91,7 @@ class Platform extends React.Component {
             );
 
             const { setLanguage } = this.props;
-            if (lesson.courseName == 'Matematik 4') {
+            if (lesson.courseName === 'Matematik 4') {
                 setLanguage('se')
             } else {
                 const defaultLocale = localStorage.getItem('defaultLocale');
@@ -221,7 +221,7 @@ class Platform extends React.Component {
                         }
                     );
                     const responseText = await response.text();
-                    let [message, ...addInfo] = responseText.split("|");
+                    let [, ...addInfo] = responseText.split("|");
                     this.props.history.push(
                         `/assignment-already-linked?to=${addInfo.to}`
                     );

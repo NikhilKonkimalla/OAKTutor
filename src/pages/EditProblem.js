@@ -10,7 +10,6 @@ import {
     Card, 
     CardContent,
     IconButton,
-    Chip,
     makeStyles,
     FormControl,
     InputLabel,
@@ -169,14 +168,6 @@ const EditProblem = () => {
         }
     }, [problemID, lessonID, history]);
 
-    const generateId = () => {
-        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-        let result = '';
-        for (let i = 0; i < 25; i++) {
-            result += chars.charAt(Math.floor(Math.random() * chars.length));
-        }
-        return result;
-    };
 
     const handleProblemChange = (field, value) => {
         setProblemData(prev => ({
@@ -192,12 +183,6 @@ const EditProblem = () => {
         }));
     };
 
-    const handleHintChange = (field, value) => {
-        setCurrentHint(prev => ({
-            ...prev,
-            [field]: value
-        }));
-    };
 
     const addStep = () => {
         if (!currentStep.stepTitle.trim()) {
@@ -326,45 +311,6 @@ const EditProblem = () => {
         cancelEditingStep();
     };
 
-    const addHint = (stepIndex) => {
-        if (!currentHint.title.trim() || !currentHint.text.trim()) {
-            alert('Please enter hint title and text');
-            return;
-        }
-        
-        const hintId = currentHint.id || `${problemData.steps[stepIndex].id}_h${(problemData.steps[stepIndex].hints || []).length + 1}`;
-        const newHint = {
-            ...currentHint,
-            id: hintId,
-            hintAnswer: Array.isArray(currentHint.hintAnswer) ? currentHint.hintAnswer : [currentHint.hintAnswer],
-            choices: currentHint.problemType === 'MultipleChoice' ? 
-                (Array.isArray(currentHint.choices) ? currentHint.choices : [currentHint.choices]) : []
-        };
-        
-        setProblemData(prev => ({
-            ...prev,
-            steps: prev.steps.map((step, i) => 
-                i === stepIndex 
-                    ? { ...step, hints: [...(step.hints || []), newHint] }
-                    : step
-            )
-        }));
-        
-        setCurrentHint({
-            id: '',
-            title: '',
-            text: '',
-            type: 'hint',
-            dependencies: [],
-            hintAnswer: [],
-            problemType: 'TextBox',
-            answerType: 'string',
-            choices: [],
-            codeTemplate: '',
-            testCases: []
-        });
-    };
-
     const removeHint = (stepIndex, hintIndex) => {
         setProblemData(prev => ({
             ...prev,
@@ -387,12 +333,20 @@ const EditProblem = () => {
             return;
         }
         
-        // Validate that all steps have answers
+        // Validate that all steps have answers (except coding problems)
         for (let i = 0; i < problemData.steps.length; i++) {
             const step = problemData.steps[i];
-            if (!step.stepAnswer || step.stepAnswer.length === 0 || (step.stepAnswer.length === 1 && !step.stepAnswer[0].trim())) {
-                alert(`Please enter an answer for step ${i + 1}: "${step.stepTitle}"`);
-                return;
+            if (step.problemType !== 'Coding') {
+                if (!step.stepAnswer || step.stepAnswer.length === 0 || (step.stepAnswer.length === 1 && !step.stepAnswer[0].trim())) {
+                    alert(`Please enter an answer for step ${i + 1}: "${step.stepTitle}"`);
+                    return;
+                }
+            } else {
+                // For coding problems, validate that we have a code template
+                if (!step.codeTemplate || !step.codeTemplate.trim()) {
+                    alert(`Please provide a code template for coding step ${i + 1}: "${step.stepTitle}"`);
+                    return;
+                }
             }
         }
         
@@ -581,14 +535,44 @@ const EditProblem = () => {
                                     </Typography>
                                 )}
                                 
-                                <Typography variant="body2" color="textSecondary">
-                                    Answer: {Array.isArray(step.stepAnswer) ? step.stepAnswer.join(', ') : step.stepAnswer}
-                                </Typography>
+                                {step.problemType !== 'Coding' && (
+                                    <Typography variant="body2" color="textSecondary">
+                                        Answer: {Array.isArray(step.stepAnswer) ? step.stepAnswer.join(', ') : step.stepAnswer}
+                                    </Typography>
+                                )}
                                 
                                 {step.choices && step.choices.length > 0 && (
                                     <Typography variant="body2" color="textSecondary">
                                         Choices: {step.choices.join(', ')}
                                     </Typography>
+                                )}
+
+                                {step.problemType === 'Coding' && (
+                                    <>
+                                        {step.codeTemplate && (
+                                            <Typography variant="body2" color="textSecondary" gutterBottom>
+                                                <strong>Code Template:</strong>
+                                            </Typography>
+                                        )}
+                                        {step.codeTemplate && (
+                                            <Box style={{ 
+                                                backgroundColor: '#f5f5f5', 
+                                                padding: '8px', 
+                                                borderRadius: '4px',
+                                                fontFamily: 'monospace',
+                                                fontSize: '12px',
+                                                whiteSpace: 'pre-wrap',
+                                                marginBottom: '8px'
+                                            }}>
+                                                {step.codeTemplate}
+                                            </Box>
+                                        )}
+                                        {step.testCases && step.testCases.length > 0 && (
+                                            <Typography variant="body2" color="textSecondary">
+                                                <strong>Test Cases:</strong> {step.testCases.length} test case(s)
+                                            </Typography>
+                                        )}
+                                    </>
                                 )}
                                 
                                 {/* Hints for this step */}
@@ -688,23 +672,25 @@ const EditProblem = () => {
                                         InputLabelProps={{ shrink: true }}
                                     />
                                 </Grid>
-                                <Grid item xs={12}>
-                        <TextField
-                            fullWidth
-                            required
-                            multiline
-                            rows={3}
-                            label="Step Answer * (comma-separated for multiple answers)"
-                            value={Array.isArray(currentStep.stepAnswer) ? currentStep.stepAnswer.join(', ') : (currentStep.stepAnswer || '')}
-                            onChange={(e) => {
-                                const value = e?.target?.value || '';
-                                handleStepChange('stepAnswer', value);
-                            }}
-                            className={classes.textField}
-                            InputLabelProps={{ shrink: true }}
-                            helperText="Enter the correct answer(s) for this step. Use commas to separate multiple answers."
-                        />
-                                </Grid>
+                                {currentStep.problemType !== 'Coding' && (
+                                    <Grid item xs={12}>
+                                        <TextField
+                                            fullWidth
+                                            required
+                                            multiline
+                                            rows={3}
+                                            label="Step Answer * (comma-separated for multiple answers)"
+                                            value={Array.isArray(currentStep.stepAnswer) ? currentStep.stepAnswer.join(', ') : (currentStep.stepAnswer || '')}
+                                            onChange={(e) => {
+                                                const value = e?.target?.value || '';
+                                                handleStepChange('stepAnswer', value);
+                                            }}
+                                            className={classes.textField}
+                                            InputLabelProps={{ shrink: true }}
+                                            helperText="Enter the correct answer(s) for this step. Use commas to separate multiple answers."
+                                        />
+                                    </Grid>
+                                )}
                                 {currentStep.problemType === 'MultipleChoice' && (
                                     <Grid item xs={12}>
                                         <TextField
@@ -765,8 +751,8 @@ const EditProblem = () => {
                                                 }}
                                                 className={classes.textField}
                                                 InputLabelProps={{ shrink: true }}
-                                                helperText="Enter test cases in JSON format. Example: [{'input': 'solution()', 'expectedOutput': 'Hello World', 'description': 'Basic test'}]"
-                                                placeholder='[{"input": "solution()", "expectedOutput": "Hello World", "description": "Basic test"}]'
+                                                helperText="Enter test cases in JSON format. Use N/A for input if no parameters needed. Example: [{'input': 'N/A', 'expectedOutput': 'Hello World'}] or [{'input': 'solution()', 'expectedOutput': 'Hello World'}]"
+                                                placeholder='[{"input": "N/A", "expectedOutput": "Hello World"}]'
                                             />
                                         </Grid>
                                     </>

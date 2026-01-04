@@ -64,8 +64,6 @@ const useStyles = makeStyles(theme => ({
   },
 }));
 
-const BATCH_SIZE = 3;
-
 const ViewAllProblems = ({ translate }) => {
   const classes = useStyles();
   const { lessonID } = useParams();

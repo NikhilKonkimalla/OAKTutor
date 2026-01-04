@@ -7,7 +7,7 @@ import Paper from '@material-ui/core/Paper';
 import { withStyles } from '@material-ui/core/styles';
 import styles from './common-styles.js';
 import IconButton from '@material-ui/core/IconButton';
-import { _coursePlansNoEditor, ThemeContext, SITE_NAME, SHOW_COPYRIGHT, getCoursePlans } from '../../config/config.js';
+import { ThemeContext, SITE_NAME, SHOW_COPYRIGHT, getCoursePlans } from '../../config/config.js';
 import Spacer from "../Spacer";
 import HelpOutlineOutlinedIcon from "@material-ui/icons/HelpOutlineOutlined";
 import { Typography } from "@material-ui/core";

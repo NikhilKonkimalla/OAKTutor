@@ -45,7 +45,7 @@ class Problem extends React.Component {
         super(props);
 
         const { setLanguage } = props;
-        if (props.lesson.courseName == "Matematik 4") {
+        if (props.lesson.courseName === "Matematik 4") {
             setLanguage('se')
         }
 

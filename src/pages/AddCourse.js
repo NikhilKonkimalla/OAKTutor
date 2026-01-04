@@ -13,7 +13,7 @@ import {
     Chip,
     makeStyles
 } from '@material-ui/core';
-import { ArrowBack, Add, Delete, Edit } from '@material-ui/icons';
+import { ArrowBack, Add, Delete } from '@material-ui/icons';
 import { useHistory } from 'react-router-dom';
 import BrandLogoNav from '@components/BrandLogoNav';
 

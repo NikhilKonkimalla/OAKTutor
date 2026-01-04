@@ -2,9 +2,11 @@ import {
     CURRENT_SEMESTER,
     DO_LOG_DATA,
     DO_LOG_MOUSE_DATA,
+    DO_LOG_KEYSTROKES,
     ENABLE_FIREBASE,
     GRANULARITY,
     MAX_BUFFER_SIZE,
+    KEYSTROKE_BUFFER_SIZE,
 } from "../config/config.js";
 
 import { initializeApp } from "firebase/app";
@@ -25,10 +27,11 @@ import {
 
 const problemSubmissionsOutput = "problemSubmissions";
 const problemStartLogOutput = "problemStartLogs";
-const GPTExperimentOutput = "GPTExperimentOutput";
 const feedbackOutput = "feedbacks";
 const siteLogOutput = "siteLogs";
 const focusStatus = "focusStatus";
+const hintTrackingOutput = "hintTracking";
+const keystrokeLogOutput = "keystrokeLogs";
 
 class Firebase {
     constructor(oats_user_id, credentials, treatment, siteVersion, ltiContext) {
@@ -36,14 +39,30 @@ class Firebase {
             console.debug("Not using firebase for logging");
             return;
         }
-        const app = initializeApp(credentials);
-
-        this.oats_user_id = oats_user_id;
-        this.db = getFirestore(app);
-        this.treatment = treatment;
-        this.siteVersion = siteVersion;
-        this.mouseLogBuffer = [];
-        this.ltiContext = ltiContext;
+        
+        try {
+            const app = initializeApp(credentials);
+            this.oats_user_id = oats_user_id;
+            this.db = getFirestore(app);
+            this.treatment = treatment;
+            this.siteVersion = siteVersion;
+            this.mouseLogBuffer = [];
+            this.keystrokeBuffer = [];
+            this.lastKeystrokeTime = null;
+            this.lastInputLength = 0;
+            this.keystrokeFlushTimer = null; // Timer for periodic flushing
+            this.ltiContext = ltiContext;
+            
+            if (IS_STAGING_OR_DEVELOPMENT) {
+                console.debug("Firebase initialized successfully", {
+                    projectId: credentials.projectId,
+                    userId: oats_user_id
+                });
+            }
+        } catch (error) {
+            console.error("Firebase initialization error:", error);
+            throw error; // Re-throw to be caught by App.js
+        }
     }
 
     getCollectionName(targetCollection) {
@@ -109,7 +128,16 @@ class Firebase {
       Data: Value - JSON object of data you want to store
     */
     async writeData(_collection, data) {
-        if (!ENABLE_FIREBASE) return;
+        if (!ENABLE_FIREBASE) {
+            console.debug("Firebase logging disabled, skipping writeData");
+            return;
+        }
+        
+        if (!this.db) {
+            console.error("Firebase database not initialized. Cannot write data.");
+            return;
+        }
+        
         const collection = this.getCollectionName(_collection);
         const payload = this.addMetaData(data);
 
@@ -118,14 +146,35 @@ class Firebase {
             console.debug("Writing this payload to firebase: ", payload);
         }
 
-        await setDoc(
-            doc(this.db, collection, this._getReadableID()),
-            payload
-        ).catch((err) => {
-            console.log("a non-critical error occurred.");
-            console.log("Error is: ", err);
-            console.debug(err);
-        });
+        try {
+            const docId = this._getReadableID();
+            const docRef = doc(this.db, collection, docId);
+            
+            if (IS_STAGING_OR_DEVELOPMENT) {
+                console.log(`📝 Attempting to write to Firestore:`, {
+                    collection: collection,
+                    documentId: docId
+                });
+            }
+            
+            await setDoc(docRef, payload);
+            
+            console.log(`✅ Successfully wrote to Firestore collection: ${collection}`, {
+                documentId: docId
+            });
+        } catch (err) {
+            console.error("Firebase writeData error:", err);
+            console.error("Collection:", collection);
+            console.error("Error details:", {
+                code: err.code,
+                message: err.message,
+                stack: err.stack
+            });
+            // Re-throw for critical errors that need to be handled upstream
+            if (err.code === 'permission-denied') {
+                console.error("PERMISSION DENIED: Check your Firestore security rules!");
+            }
+        }
     }
 
     /**
@@ -278,8 +327,6 @@ class Firebase {
             hintAnswer: hint?.hintAnswer?.toString(),
             hintIsCorrect: isCorrect,
             hintsFinished,
-            dynamicHint: "abc",
-            bioInfo: "abcedf",
             variabilization,
             Content: courseName,
             lesson,
@@ -352,6 +399,12 @@ class Firebase {
             relevantInformation,
             problemID,
         };
+        
+        const collectionName = this.getCollectionName(siteLogOutput);
+        if (IS_STAGING_OR_DEVELOPMENT) {
+            console.debug(`Submitting site log to collection: ${collectionName}`, data);
+        }
+        
         return this.writeData(siteLogOutput, data);
     }
 
@@ -404,6 +457,190 @@ class Firebase {
             ),
         };
         return this.writeData(feedbackOutput, data);
+    }
+
+    /**
+     * Logs a hint request to a separate hintTracking collection
+     * Creates a new document for each hint request with user, timestamp, and hint details
+     * @param {string} problemID - The problem ID
+     * @param {string} stepID - The step ID within the problem
+     * @param {string} hintID - Unique identifier for the specific hint
+     * @param {string} hintContent - The actual text/content of the hint
+     * @param {string} hintTitle - Title of the hint
+     * @param {string} hintType - Type of hint ("regular", "dynamic", "scaffold", etc.)
+     * @param {number} hintNumber - Sequential number of hint requested (1st, 2nd, 3rd, etc.)
+     * @param {string} courseName - Name of the course
+     * @param {string} lesson - Lesson identifier
+     */
+    logHintRequest(
+        problemID,
+        stepID,
+        hintID,
+        hintContent,
+        hintTitle,
+        hintType,
+        hintNumber,
+        courseName,
+        lesson
+    ) {
+        if (!DO_LOG_DATA) {
+            console.debug("Not using firebase for hint tracking");
+            return;
+        }
+
+        const data = {
+            problemID,
+            stepID,
+            hintID,
+            hintContent: hintContent || null,
+            hintTitle: hintTitle || null,
+            hintType: hintType || "regular",
+            hintNumber,
+            Content: courseName || "n/a",
+            lesson: lesson || "n/a",
+        };
+
+        if (IS_STAGING_OR_DEVELOPMENT) {
+            console.log("📝 Logging hint request to hintTracking collection:", data);
+        }
+
+        return this.writeData(hintTrackingOutput, data).then(() => {
+            if (IS_STAGING_OR_DEVELOPMENT) {
+                console.log("✅ Hint request successfully written to hintTracking collection");
+            }
+        }).catch((error) => {
+            console.error("❌ Error writing hint request to Firestore:", error);
+            throw error;
+        });
+    }
+
+    /**
+     * Logs a keystroke event to track typing patterns and detect potential AI cheating
+     * Buffers keystrokes and flushes when buffer is full or on explicit flush
+     * @param {string} problemID - The problem ID
+     * @param {string} stepID - The step ID within the problem
+     * @param {number} currentLength - Current length of input
+     * @param {number} previousLength - Previous length of input
+     * @param {number} timeSinceLastKeystroke - Time in ms since last keystroke
+     * @param {boolean} isPasteEvent - Whether this was a paste event (large text insertion)
+     * @param {boolean} shouldFlush - Force flush the buffer (e.g., on submit)
+     */
+    logKeystroke(
+        problemID,
+        stepID,
+        currentLength,
+        previousLength,
+        timeSinceLastKeystroke,
+        isPasteEvent = false,
+        shouldFlush = false
+    ) {
+        if (!DO_LOG_DATA || !DO_LOG_KEYSTROKES) {
+            if (IS_STAGING_OR_DEVELOPMENT) {
+                console.debug("Keystroke logging disabled:", {
+                    DO_LOG_DATA,
+                    DO_LOG_KEYSTROKES
+                });
+            }
+            return;
+        }
+
+        const now = Date.now();
+        const keystrokeData = {
+            timestamp: now,
+            inputLength: currentLength,
+            previousLength: previousLength,
+            lengthChange: currentLength - previousLength,
+            timeSinceLastKeystroke: timeSinceLastKeystroke,
+            isPasteEvent: isPasteEvent,
+        };
+
+        this.keystrokeBuffer.push(keystrokeData);
+        this.lastKeystrokeTime = now;
+        this.lastInputLength = currentLength;
+
+        if (IS_STAGING_OR_DEVELOPMENT) {
+            console.debug(`⌨️ Keystroke buffered (${this.keystrokeBuffer.length}/${KEYSTROKE_BUFFER_SIZE}):`, {
+                problemID,
+                stepID,
+                bufferSize: this.keystrokeBuffer.length,
+                isPasteEvent
+            });
+        }
+
+        // Flush buffer if it's full or if explicitly requested
+        if (this.keystrokeBuffer.length >= KEYSTROKE_BUFFER_SIZE || shouldFlush) {
+            this.flushKeystrokeBuffer(problemID, stepID);
+        } else {
+            // Set a timer to flush after 5 seconds of inactivity (so data doesn't get stuck)
+            if (this.keystrokeFlushTimer) {
+                clearTimeout(this.keystrokeFlushTimer);
+            }
+            this.keystrokeFlushTimer = setTimeout(() => {
+                if (this.keystrokeBuffer.length > 0) {
+                    this.flushKeystrokeBuffer(problemID, stepID);
+                }
+            }, 5000); // Flush after 5 seconds of no new keystrokes
+        }
+    }
+
+    /**
+     * Flushes the keystroke buffer to Firestore
+     * @param {string} problemID - The problem ID
+     * @param {string} stepID - The step ID
+     */
+    flushKeystrokeBuffer(problemID, stepID) {
+        if (this.keystrokeBuffer.length === 0) {
+            if (IS_STAGING_OR_DEVELOPMENT) {
+                console.debug("Keystroke buffer is empty, nothing to flush");
+            }
+            return;
+        }
+
+        // Calculate typing metrics
+        const keystrokes = [...this.keystrokeBuffer]; // Copy array
+        const totalTime = keystrokes.length > 1 
+            ? keystrokes[keystrokes.length - 1].timestamp - keystrokes[0].timestamp 
+            : 0;
+        const totalCharacters = keystrokes.reduce((sum, k) => sum + Math.max(0, k.lengthChange), 0);
+        const typingSpeed = totalTime > 0 ? (totalCharacters / totalTime) * 1000 : 0; // characters per second
+        
+        const pasteEvents = keystrokes.filter(k => k.isPasteEvent).length;
+        const averageTimeBetweenKeystrokes = keystrokes.length > 1
+            ? keystrokes.slice(1).reduce((sum, k, i) => sum + k.timeSinceLastKeystroke, 0) / (keystrokes.length - 1)
+            : 0;
+
+        const data = {
+            problemID: problemID || "n/a",
+            stepID: stepID || "n/a",
+            keystrokeCount: keystrokes.length,
+            totalTime: totalTime,
+            totalCharacters: totalCharacters,
+            typingSpeed: Math.round(typingSpeed * 100) / 100, // Round to 2 decimal places
+            pasteEventCount: pasteEvents,
+            averageTimeBetweenKeystrokes: Math.round(averageTimeBetweenKeystrokes * 100) / 100,
+            keystrokes: keystrokes, // Full keystroke data
+        };
+
+        console.log("📤 Flushing keystroke buffer to Firestore:", {
+            problemID,
+            stepID,
+            keystrokeCount: keystrokes.length,
+            typingSpeed: data.typingSpeed,
+            pasteEvents,
+            collection: this.getCollectionName(keystrokeLogOutput)
+        });
+
+        // Clear buffer BEFORE writing (in case write fails, we don't want to lose data)
+        const bufferToWrite = [...this.keystrokeBuffer];
+        this.keystrokeBuffer = [];
+
+        return this.writeData(keystrokeLogOutput, data).then(() => {
+            console.log("✅ Keystroke buffer successfully written to Firestore");
+        }).catch((error) => {
+            console.error("❌ Error writing keystroke buffer:", error);
+            // Restore buffer on error so we can retry
+            this.keystrokeBuffer = bufferToWrite;
+        });
     }
 }
 

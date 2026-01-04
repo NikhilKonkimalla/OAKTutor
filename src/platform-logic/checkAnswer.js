@@ -109,7 +109,7 @@ function checkAnswer({ attempt, actual, answerType, precision = 5, variabilizati
         return [attempt, true, null];
     }
 
-    if (localStorage.getItem('locale') == 'se') {
+    if (localStorage.getItem('locale') === 'se') {
         attempt = convertSwedishToUS(attempt)
     }
     
@@ -124,10 +124,12 @@ function checkAnswer({ attempt, actual, answerType, precision = 5, variabilizati
         }
         if (answerType === "arithmetic") {
             // checks if anticipated answer is a matrix
-            if (/\\begin{[a-zA-Z]?matrix}/.test(actual)) {
+            // actual is an array, so check the first element
+            const actualStr = Array.isArray(actual) ? actual[0] : actual;
+            if (/\\begin{[a-zA-Z]?matrix}/.test(actualStr)) {
                 console.debug(`attempt: ${attempt} vs. actual:`, actual)
                 const studentMatrix = JSON.parse(attempt)
-                const solutionMatrices = parseMatrixTex(actual);
+                const solutionMatrices = parseMatrixTex(actualStr);
 
                 console.debug('solutions: ', solutionMatrices)
                 let correctAnswers = solutionMatrices.filter(matrix => {

@@ -4,7 +4,7 @@ import TextField from "@material-ui/core/TextField";
 import MultipleChoice from "./MultipleChoice";
 import GridInput from "./GridInput";
 import MatrixInput from "./MatrixInput";
-import CodeEditor from "./CodeEditor";
+import PythonTutorEditor from "./PythonTutorEditor";
 import { renderText } from "../../platform-logic/renderText";
 import clsx from "clsx";
 import "mathlive";
@@ -25,11 +25,17 @@ class ProblemInput extends React.Component {
         this.mathFieldRef = React.createRef();
 
         this.onEquationChange = this.onEquationChange.bind(this)
+        this.handleInputChange = this.handleInputChange.bind(this);
+        this.handlePaste = this.handlePaste.bind(this);
         
         this.state = {
             value: "",
             isMathFieldFocused: false,
         };
+        
+        // Keystroke tracking state
+        this.lastInputLength = 0;
+        this.lastKeystrokeTime = null;
     }
 
     componentDidMount() {
@@ -51,7 +57,20 @@ class ProblemInput extends React.Component {
         }
     }
 
-    componentDidUpdate(_, prevState) {
+    componentDidUpdate(prevProps, prevState) {
+        // Reset keystroke tracking when step changes
+        if (prevProps.step?.id !== this.props.step?.id) {
+            // Flush buffer for previous step
+            if (this.context?.firebase && this.context.firebase.flushKeystrokeBuffer) {
+                const problemID = this.context.problemID || "n/a";
+                const stepID = prevProps.step?.id || "n/a";
+                this.context.firebase.flushKeystrokeBuffer(problemID, stepID);
+            }
+            // Reset tracking state for new step
+            this.lastInputLength = 0;
+            this.lastKeystrokeTime = null;
+        }
+        
         if (prevState.isMathFieldFocused !== this.state.isMathFieldFocused && !this.state.isMathFieldFocused) {
             const mathField = this.mathFieldRef.current;
         if (mathField) {
@@ -62,6 +81,13 @@ class ProblemInput extends React.Component {
     
     componentWillUnmount() {
         document.removeEventListener('click', this.handleClickOutside);
+        
+        // Flush keystroke buffer when component unmounts
+        if (this.context?.firebase && this.context.firebase.flushKeystrokeBuffer) {
+            const problemID = this.context.problemID || "n/a";
+            const stepID = this.props.step?.id || "n/a";
+            this.context.firebase.flushKeystrokeBuffer(problemID, stepID);
+        }
     }
     
     handleFocus = () => {
@@ -117,7 +143,61 @@ class ProblemInput extends React.Component {
                 eqContainer.style.height = `${newHeight}px`;
             }
         }
+        
+        // Track keystroke for math-field
+        this.handleInputChange(eq);
         this.props.setInputValState(eq)
+    }
+    
+    handleInputChange(newValue) {
+        const currentLength = (newValue || "").length;
+        const previousLength = this.lastInputLength;
+        const now = Date.now();
+        const timeSinceLastKeystroke = this.lastKeystrokeTime ? now - this.lastKeystrokeTime : 0;
+        
+        // Detect paste event: large text insertion (>10 characters at once)
+        const lengthChange = currentLength - previousLength;
+        const isPasteEvent = lengthChange > 10;
+        
+        // Log keystroke if Firebase is available
+        if (this.context?.firebase && this.context.firebase.logKeystroke) {
+            const problemID = this.context.problemID || "n/a";
+            const stepID = this.props.step?.id || "n/a";
+            
+            console.debug("⌨️ Logging keystroke:", {
+                problemID,
+                stepID,
+                currentLength,
+                previousLength,
+                lengthChange,
+                isPasteEvent,
+                timeSinceLastKeystroke
+            });
+            
+            this.context.firebase.logKeystroke(
+                problemID,
+                stepID,
+                currentLength,
+                previousLength,
+                timeSinceLastKeystroke,
+                isPasteEvent,
+                false // Don't flush unless buffer is full
+            );
+        } else {
+            console.warn("⚠️ Firebase or logKeystroke not available:", {
+                hasContext: !!this.context,
+                hasFirebase: !!(this.context?.firebase),
+                hasLogKeystroke: !!(this.context?.firebase?.logKeystroke)
+            });
+        }
+        
+        this.lastInputLength = currentLength;
+        this.lastKeystrokeTime = now;
+    }
+    
+    handlePaste(event) {
+        // Paste event is handled by handleInputChange detecting large length change
+        // But we can add additional tracking here if needed
     }
 
     render() {
@@ -152,7 +232,11 @@ class ProblemInput extends React.Component {
                             math-virtual-keyboard-policy="sandboxed"
                             onFocus={this.handleFocus}
                             onBlur={this.handleBlur}
-                            onInput={evt => this.props.setInputValState(evt.target.value)}
+                            onInput={(evt) => {
+                                const value = evt.target.value;
+                                this.handleInputChange(value);
+                                this.props.setInputValState(value);
+                            }}
                             style={{"display": "block"}}
                             value={(use_expanded_view && debug) ? correctAnswer : state.inputVal}
                             onChange={this.onEquationChange}
@@ -176,7 +260,11 @@ class ProblemInput extends React.Component {
                             error={showCorrectness && state.isCorrect === false}
                             className={classes.inputField}
                             variant="outlined"
-                            onChange={(evt) => this.props.editInput(evt)}
+                            onChange={(evt) => {
+                                this.handleInputChange(evt.target.value);
+                                this.props.editInput(evt);
+                            }}
+                            onPaste={this.handlePaste}
                             onKeyPress={(evt) => this.props.handleKey(evt)}
                             InputProps={{
                                 classes: {
@@ -192,7 +280,11 @@ class ProblemInput extends React.Component {
                     {(problemType === "TextBox" && this.props.step.answerType === "short-essay") && (
                         <textarea
                             className="short-essay-input"
-                            onChange={(evt) => this.props.editInput(evt)}
+                            onChange={(evt) => {
+                                this.handleInputChange(evt.target.value);
+                                this.props.editInput(evt);
+                            }}
+                            onPaste={this.handlePaste}
                             onKeyPress={(evt) => this.props.handleKey(evt)}
                         >
                         </textarea>
@@ -246,7 +338,7 @@ class ProblemInput extends React.Component {
                         />
                     )}
                     {problemType === "Coding" && (
-                        <CodeEditor
+                        <PythonTutorEditor
                             step={this.props.step}
                             setInputValState={this.props.setInputValState}
                             index={index}

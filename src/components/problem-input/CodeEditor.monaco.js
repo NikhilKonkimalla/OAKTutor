@@ -146,8 +146,11 @@ class CodeEditor extends React.Component {
 
     try {
       // Configure Skulpt
+      let capturedOutput = "";
       Skulpt.configure({
         output: (text) => {
+          console.log('Skulpt output captured:', text);
+          capturedOutput += text;
           this.setState(prevState => ({
             output: prevState.output + text
           }));
@@ -159,10 +162,31 @@ class CodeEditor extends React.Component {
           return Skulpt.builtinFiles["files"][filename];
         },
         execLimit: 10000, // Limit execution to prevent infinite loops
+        __future__: Skulpt.python3,
       });
 
       // Execute the code
-      await Skulpt.importMainWithBody("<stdin>", false, this.state.code, true);
+      try {
+        console.log('Executing code:', this.state.code);
+        
+        // Check if code contains function definitions that need to be called
+        let codeToExecute = this.state.code;
+        const functionMatches = this.state.code.match(/def\s+(\w+)\s*\(/g);
+        if (functionMatches) {
+          console.log('Found function definitions:', functionMatches);
+          // Extract function names and add calls to them
+          const functionNames = functionMatches.map(match => {
+            const nameMatch = match.match(/def\s+(\w+)\s*\(/);
+            return nameMatch ? nameMatch[1] : null;
+          }).filter(name => name !== null);
+          
+          // Add function calls to the code
+          const functionCalls = functionNames.map(name => `${name}()`).join('\n');
+          codeToExecute = this.state.code + '\n' + functionCalls;
+          console.log('Modified code to execute:', codeToExecute);
+        }
+        
+        await Skulpt.importMainWithBody("<stdin>", false, codeToExecute, true);
       
       // Run test cases if they exist
       if (this.props.step?.testCases && this.props.step.testCases.length > 0) {
@@ -171,9 +195,36 @@ class CodeEditor extends React.Component {
       
       this.setState({ isRunning: false });
     } catch (error) {
+      // Comprehensive error output
+      let errorOutput = "=== ERROR ===\n";
+      errorOutput += `${error.toString()}\n`;
+      
+      // Add error details if available
+      if (error.args && error.args.v && error.args.v.length > 0) {
+        errorOutput += `\nError details: ${error.args.v[0].v}\n`;
+      }
+      
+      // Add traceback if available
+      if (error.traceback && error.traceback.length > 0) {
+        errorOutput += "\nTraceback:\n";
+        error.traceback.forEach((tb) => {
+          if (tb.filename && tb.lineno) {
+            errorOutput += `  File "${tb.filename}", line ${tb.lineno}\n`;
+          }
+        });
+      }
+      
+      // Add stack trace if available
+      if (error.stack) {
+        errorOutput += "\nStack trace:\n";
+        errorOutput += error.stack + "\n";
+      }
+      
+      errorOutput += "=============\n";
+      
       this.setState({
         isRunning: false,
-        output: `Error: ${error.message || error.toString()}`
+        output: errorOutput
       });
     }
   }
@@ -196,6 +247,7 @@ class CodeEditor extends React.Component {
             return Skulpt.builtinFiles["files"][filename];
           },
           execLimit: 10000,
+          __future__: Skulpt.python3,
         });
 
         // Execute the test case
@@ -216,9 +268,33 @@ class CodeEditor extends React.Component {
           passed,
         });
       } catch (error) {
+        // Comprehensive error output for test cases
+        let errorOutput = `Error: ${error.toString()}`;
+        
+        // Add error details if available
+        if (error.args && error.args.v && error.args.v.length > 0) {
+          errorOutput += `\nDetails: ${error.args.v[0].v}`;
+        }
+        
+        // Add traceback if available
+        if (error.traceback && error.traceback.length > 0) {
+          errorOutput += "\nTraceback:";
+          error.traceback.forEach((tb) => {
+            if (tb.filename && tb.lineno) {
+              errorOutput += `\n  File "${tb.filename}", line ${tb.lineno}`;
+            }
+          });
+        }
+        
+        // Add stack trace if available (condensed for test results)
+        if (error.stack) {
+          const stackLines = error.stack.split('\n').slice(0, 3); // First 3 lines only
+          errorOutput += "\n" + stackLines.join('\n');
+        }
+        
         testResults.push({
           ...testCase,
-          actualOutput: `Error: ${error.message || error.toString()}`,
+          actualOutput: errorOutput,
           passed: false,
         });
       }

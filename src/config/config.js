@@ -77,6 +77,19 @@ const DO_FOCUS_TRACKING = true;
 const DO_LOG_MOUSE_DATA = false;
 
 /**
+ * If DO_LOG_DATA is enabled, indicates whether the site should track user keystrokes to detect typing patterns
+ * and potential AI cheating (copy-paste, rapid typing, etc.).
+ * @type {boolean}
+ */
+const DO_LOG_KEYSTROKES = true;
+
+/**
+ * Buffer size for keystroke logging before flushing to Firebase
+ * @type {number}
+ */
+const KEYSTROKE_BUFFER_SIZE = 20; // Reduced from 50 to flush more frequently
+
+/**
  * Flag to enable or disable A/B testing
  * @type {boolean}
  */
@@ -122,6 +135,10 @@ const DYNAMIC_HINT_URL = process.env.AI_HINT_GENERATION_AWS_ENDPOINT;
 
 const DYNAMIC_HINT_TEMPLATE =
     "<{problem_title}.> <{problem_subtitle}.> <{question_title}.> <{question_subtitle}.> <Student's answer is: {student_answer}.> <The correct answer is: {correct_answer}.> Please give a hint for this.";
+
+// OpenRouter API Configuration
+const OPENROUTER_API_KEY = "Bearer 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";
+const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
 
 const MASTERY_THRESHOLD = 0.95;
 
@@ -193,6 +210,8 @@ export {
     ENABLE_FIREBASE,
     DO_LOG_DATA,
     DO_LOG_MOUSE_DATA,
+    DO_LOG_KEYSTROKES,
+    KEYSTROKE_BUFFER_SIZE,
     AB_TEST_MODE,
     dynamicText,
     ENABLE_BOTTOM_OUT_HINTS,
@@ -219,4 +238,6 @@ export {
     DO_FOCUS_TRACKING,
     findLessonById,
     SHOW_NOT_CANVAS_WARNING,
+    OPENROUTER_API_KEY,
+    OPENROUTER_API_URL,
 };

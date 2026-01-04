@@ -51,7 +51,7 @@ class HintTextbox extends React.Component {
             questionText: this.hint.text
         });
 
-        if (parsed == '') {
+        if (parsed === '') {
             toastNotifyEmpty(this.translate)
             return;
         }
