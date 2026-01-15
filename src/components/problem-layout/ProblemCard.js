@@ -825,6 +825,8 @@ class ProblemCard extends React.Component {
                             setInputValState={this.setInputValState}
                             handleKey={this.handleKey}
                             index={this.props.index}
+                            problemTitle={this.problemTitle || ""}
+                            problemBody={this.problemSubTitle || ""}
                         />
                     </div>
                 </CardContent>

@@ -4,7 +4,7 @@ import TextField from "@material-ui/core/TextField";
 import MultipleChoice from "./MultipleChoice";
 import GridInput from "./GridInput";
 import MatrixInput from "./MatrixInput";
-import PythonTutorEditor from "./PythonTutorEditor";
+import SimpleCodeEditor from "./SimpleCodeEditor";
 import { renderText } from "../../platform-logic/renderText";
 import clsx from "clsx";
 import "mathlive";
@@ -338,11 +338,13 @@ class ProblemInput extends React.Component {
                         />
                     )}
                     {problemType === "Coding" && (
-                        <PythonTutorEditor
+                        <SimpleCodeEditor
                             step={this.props.step}
                             setInputValState={this.props.setInputValState}
                             index={index}
                             classes={this.props.classes}
+                            problemTitle={this.props.problemTitle || ""}
+                            problemBody={this.props.problemBody || ""}
                             onValidationReady={(validateFunc) => {
                                 // Store validation function for later use
                                 this.codingValidation = validateFunc;
