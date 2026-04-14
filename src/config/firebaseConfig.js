@@ -1,11 +1,9 @@
-// Import the functions you need from the SDKs you need
 import { initializeApp } from "firebase/app";
 import { getAnalytics } from "firebase/analytics";
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
+import loadFirebaseEnvConfig from "../util/loadFirebaseEnvConfig";
 
-// Your web app's Firebase configuration
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+// Default config used for local development.
+// In CI/CD builds the REACT_APP_FIREBASE_CONFIG secret overrides these values.
 const firebaseConfig = {
   apiKey: "AIzaSyBgL_Iq4adZgaD1eZOqrGaIj2T4yN_OWSw",
   authDomain: "oaktutor-16c22.firebaseapp.com",
@@ -16,7 +14,10 @@ const firebaseConfig = {
   measurementId: "G-0BY5VDTQ7J"
 };
 
-// Initialize Firebase
+// Override with environment config if REACT_APP_FIREBASE_CONFIG is set at build time
+loadFirebaseEnvConfig(firebaseConfig);
+
+// Initialize Firebase once with the resolved config
 const app = initializeApp(firebaseConfig);
 
 // Initialize Analytics (only in browser environment)
@@ -30,6 +31,6 @@ if (typeof window !== 'undefined' && firebaseConfig.measurementId) {
   }
 }
 
-// Export the config and analytics
+export { app };
 export default firebaseConfig;
 export { analytics };

@@ -147,6 +147,19 @@ const getCoursePlans = () => {
     return getAllCourses();
 };
 
+const getCustomLessonsForCourse = (courseName) => {
+    try {
+        if (typeof window !== 'undefined' && window.localStorage) {
+            const all = JSON.parse(localStorage.getItem('customLessons') || '[]');
+            return all.filter(l => l.courseName === courseName);
+        }
+        return [];
+    } catch (error) {
+        console.warn('Error loading custom lessons:', error);
+        return [];
+    }
+};
+
 // Function to get lesson plans dynamically
 const getLessonPlans = () => {
     const coursePlans = getCoursePlans();
@@ -167,6 +180,16 @@ const getLessonPlans = () => {
                         course.courseLicense != null ? course.courseLicense : "",
                 });
             }
+        }
+        // Include custom lessons created for this course
+        const customLessons = getCustomLessonsForCourse(course.courseName);
+        for (const lesson of customLessons) {
+            lessonPlans.push({
+                ...lesson,
+                courseName: course.courseName,
+                courseOER: course.courseOER != null ? course.courseOER : "",
+                courseLicense: course.courseLicense != null ? course.courseLicense : "",
+            });
         }
     }
     
@@ -220,6 +243,7 @@ export {
     _coursePlansNoEditor,
     getCoursePlans,
     getCustomProblems,
+    getCustomLessonsForCourse,
     MAX_BUFFER_SIZE,
     GRANULARITY,
     EQUATION_EDITOR_AUTO_COMMANDS,

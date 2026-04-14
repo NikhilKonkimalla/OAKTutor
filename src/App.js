@@ -32,9 +32,9 @@ import AssignmentAlreadyLinked from "./pages/AssignmentAlreadyLinked";
 import SessionExpired from "./pages/SessionExpired";
 import { Posts } from "./pages/Posts/Posts";
 import AddCourse from "./pages/AddCourse";
+import AddLesson from "./pages/AddLesson";
 import AddProblem from "./pages/AddProblem";
 import EditProblem from "./pages/EditProblem";
-import loadFirebaseEnvConfig from "./util/loadFirebaseEnvConfig";
 import generateRandomInt from "./util/generateRandomInt";
 import { cleanObjectKeys } from "./util/cleanObject";
 import GlobalErrorBoundary from "./components/GlobalErrorBoundary";
@@ -52,8 +52,6 @@ import { heuristic as defaultHeuristic } from "./models/BKT/problem-select-heuri
 import { heuristic as experimentalHeuristic } from "./models/BKT/problem-select-heuristics/experimentalHeuristic.js";
 import BrowserStorage from "./util/browserStorage";
 // ### END CUSTOMIZABLE IMPORTS ###
-
-loadFirebaseEnvConfig(config);
 
 let theme = createTheme({
     palette: {
@@ -492,6 +490,7 @@ class App extends React.Component {
                                         )}
                                     />
                                     <Route
+                                        exact
                                         path="/courses/:courseNum"
                                         render={(props) => (
                                             <Platform
@@ -604,6 +603,16 @@ class App extends React.Component {
                                         path="/add-course"
                                         render={(props) => (
                                             <AddCourse
+                                                key={Date.now()}
+                                                {...props}
+                                            />
+                                        )}
+                                    />
+                                    <Route
+                                        exact
+                                        path="/courses/:courseNum/add-lesson"
+                                        render={(props) => (
+                                            <AddLesson
                                                 key={Date.now()}
                                                 {...props}
                                             />

@@ -51,7 +51,22 @@ const styles = theme => ({
         width: '100%',
         textAlign: 'center',
         //marginLeft: '19em'
-
+        '& .MuiOutlinedInput-root': {
+            '& fieldset': {
+                borderColor: 'rgba(255, 255, 255, 0.6)',
+                borderWidth: '2px',
+            },
+            '&:hover fieldset': {
+                borderColor: 'rgba(255, 255, 255, 0.9)',
+            },
+            '&.Mui-focused fieldset': {
+                borderColor: '#8c94ff',
+                borderWidth: '2px',
+            },
+        },
+        '& .MuiInputBase-input': {
+            color: '#ffffff',
+        },
     },
 
     muiUsedHint: {

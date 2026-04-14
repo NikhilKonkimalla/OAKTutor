@@ -9,7 +9,7 @@ import {
     KEYSTROKE_BUFFER_SIZE,
 } from "../config/config.js";
 
-import { initializeApp } from "firebase/app";
+import { getApps, getApp, initializeApp } from "firebase/app";
 import {
     arrayUnion,
     doc,
@@ -41,7 +41,8 @@ class Firebase {
         }
         
         try {
-            const app = initializeApp(credentials);
+            // Reuse the app initialized in firebaseConfig.js if it already exists
+            const app = getApps().length ? getApp() : initializeApp(credentials);
             this.oats_user_id = oats_user_id;
             this.db = getFirestore(app);
             this.treatment = treatment;

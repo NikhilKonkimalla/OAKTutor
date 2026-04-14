@@ -53,6 +53,10 @@ const useStyles = makeStyles((theme) => ({
         borderRadius: '6px',
         padding: theme.spacing(2),
         marginBottom: theme.spacing(2),
+        color: '#000000',
+        '& .MuiTypography-colorTextSecondary': {
+            color: '#555555',
+        },
     },
     hintCard: {
         backgroundColor: '#f1f3f4',
@@ -190,16 +194,16 @@ const EditProblem = () => {
             return;
         }
         
-        // For coding problems, we don't require a traditional step answer
-        if (currentStep.problemType !== 'Coding') {
+        // For coding and lesson steps, we don't require a traditional step answer
+        if (currentStep.problemType !== 'Coding' && currentStep.problemType !== 'Lesson') {
             if (!currentStep.stepAnswer || !currentStep.stepAnswer.trim()) {
                 alert('Please enter a step answer');
                 return;
             }
         }
         
-        // Process the step answer - split by commas and clean up (only for non-coding problems)
-        const stepAnswer = currentStep.problemType === 'Coding' ? [] : 
+        // Process the step answer - split by commas and clean up (only for non-coding, non-lesson steps)
+        const stepAnswer = (currentStep.problemType === 'Coding' || currentStep.problemType === 'Lesson') ? [] : 
             (typeof currentStep.stepAnswer === 'string' 
                 ? currentStep.stepAnswer.split(',').map(a => a.trim()).filter(a => a)
                 : currentStep.stepAnswer);
@@ -274,16 +278,16 @@ const EditProblem = () => {
             return;
         }
         
-        // For coding problems, we don't require a traditional step answer
-        if (currentStep.problemType !== 'Coding') {
+        // For coding and lesson steps, we don't require a traditional step answer
+        if (currentStep.problemType !== 'Coding' && currentStep.problemType !== 'Lesson') {
             if (!currentStep.stepAnswer || !currentStep.stepAnswer.trim()) {
                 alert('Please enter a step answer');
                 return;
             }
         }
         
-        // Process the step answer - split by commas and clean up (only for non-coding problems)
-        const stepAnswer = currentStep.problemType === 'Coding' ? [] : 
+        // Process the step answer - split by commas and clean up (only for non-coding, non-lesson steps)
+        const stepAnswer = (currentStep.problemType === 'Coding' || currentStep.problemType === 'Lesson') ? [] : 
             (typeof currentStep.stepAnswer === 'string' 
                 ? currentStep.stepAnswer.split(',').map(a => a.trim()).filter(a => a)
                 : currentStep.stepAnswer);
@@ -333,18 +337,17 @@ const EditProblem = () => {
             return;
         }
         
-        // Validate that all steps have answers (except coding problems)
+        // Validate that all steps have answers (except coding and lesson steps)
         for (let i = 0; i < problemData.steps.length; i++) {
             const step = problemData.steps[i];
-            if (step.problemType !== 'Coding') {
-                if (!step.stepAnswer || step.stepAnswer.length === 0 || (step.stepAnswer.length === 1 && !step.stepAnswer[0].trim())) {
-                    alert(`Please enter an answer for step ${i + 1}: "${step.stepTitle}"`);
-                    return;
-                }
-            } else {
-                // For coding problems, validate that we have a code template
+            if (step.problemType === 'Coding') {
                 if (!step.codeTemplate || !step.codeTemplate.trim()) {
                     alert(`Please provide a code template for coding step ${i + 1}: "${step.stepTitle}"`);
+                    return;
+                }
+            } else if (step.problemType !== 'Lesson') {
+                if (!step.stepAnswer || step.stepAnswer.length === 0 || (step.stepAnswer.length === 1 && !step.stepAnswer[0].trim())) {
+                    alert(`Please enter an answer for step ${i + 1}: "${step.stepTitle}"`);
                     return;
                 }
             }
@@ -535,7 +538,7 @@ const EditProblem = () => {
                                     </Typography>
                                 )}
                                 
-                                {step.problemType !== 'Coding' && (
+                                {step.problemType !== 'Coding' && step.problemType !== 'Lesson' && (
                                     <Typography variant="body2" color="textSecondary">
                                         Answer: {Array.isArray(step.stepAnswer) ? step.stepAnswer.join(', ') : step.stepAnswer}
                                     </Typography>
@@ -632,9 +635,11 @@ const EditProblem = () => {
                                             <MenuItem value="TextBox">Text Box</MenuItem>
                                             <MenuItem value="MultipleChoice">Multiple Choice</MenuItem>
                                             <MenuItem value="Coding">Coding</MenuItem>
+                                            <MenuItem value="Lesson">Lesson (No Answer)</MenuItem>
                                         </Select>
                                     </FormControl>
                                 </Grid>
+                                {currentStep.problemType !== 'Lesson' && (
                                 <Grid item xs={12} sm={6}>
                                     <FormControl fullWidth className={classes.textField}>
                                         <InputLabel shrink>Answer Type</InputLabel>
@@ -648,6 +653,7 @@ const EditProblem = () => {
                                         </Select>
                                     </FormControl>
                                 </Grid>
+                                )}
                                 <Grid item xs={12}>
                                     <TextField
                                         fullWidth
@@ -664,7 +670,7 @@ const EditProblem = () => {
                                     <TextField
                                         fullWidth
                                         multiline
-                                        rows={2}
+                                        minRows={2}
                                         label="Step Body (optional)"
                                         value={currentStep.stepBody}
                                         onChange={(e) => handleStepChange('stepBody', e?.target?.value || '')}
@@ -672,7 +678,7 @@ const EditProblem = () => {
                                         InputLabelProps={{ shrink: true }}
                                     />
                                 </Grid>
-                                {currentStep.problemType !== 'Coding' && (
+                                {currentStep.problemType !== 'Coding' && currentStep.problemType !== 'Lesson' && (
                                     <Grid item xs={12}>
                                         <TextField
                                             fullWidth

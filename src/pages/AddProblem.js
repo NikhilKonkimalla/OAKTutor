@@ -53,6 +53,10 @@ const useStyles = makeStyles((theme) => ({
         borderRadius: '6px',
         padding: theme.spacing(2),
         marginBottom: theme.spacing(2),
+        color: '#000000',
+        '& .MuiTypography-colorTextSecondary': {
+            color: '#555555',
+        },
     },
     hintCard: {
         backgroundColor: '#f1f3f4',
@@ -155,6 +159,7 @@ const AddProblem = () => {
     });
     
     const [customProblems, setCustomProblems] = useState([]);
+    const [editingStepIndex, setEditingStepIndex] = useState(null);
 
     // Load custom problems
     useEffect(() => {
@@ -216,46 +221,82 @@ const AddProblem = () => {
     };
 
 
+    const buildStep = (baseStep, index) => {
+        const stepAnswer = (baseStep.problemType === 'Coding' || baseStep.problemType === 'Lesson') ? [] : 
+            (typeof baseStep.stepAnswer === 'string' 
+                ? baseStep.stepAnswer.split(',').map(a => a.trim()).filter(a => a)
+                : baseStep.stepAnswer);
+
+        const stepId = baseStep.id || `${problemData.id || 'problem'}_step${index + 1}`;
+        return {
+            ...baseStep,
+            id: stepId,
+            stepAnswer: stepAnswer,
+            choices: baseStep.problemType === 'MultipleChoice' ? 
+                (Array.isArray(baseStep.choices) ? baseStep.choices : [baseStep.choices]) : [],
+            ...(baseStep.problemType === 'Coding' && {
+                language: 'python',
+                codeTemplate: baseStep.codeTemplate || 'def solution():\n    # Your code here\n    pass',
+                testCases: baseStep.testCases || []
+            })
+        };
+    };
+
     const addStep = () => {
         if (!currentStep.stepTitle.trim()) {
             alert('Please enter a step title');
             return;
         }
         
-        // For coding problems, we don't require a traditional step answer
-        if (currentStep.problemType !== 'Coding') {
+        if (currentStep.problemType !== 'Coding' && currentStep.problemType !== 'Lesson') {
             if (!currentStep.stepAnswer || !currentStep.stepAnswer.trim()) {
                 alert('Please enter a step answer');
                 return;
             }
         }
+
+        if (editingStepIndex !== null) {
+            const updatedStep = buildStep(currentStep, editingStepIndex);
+            setProblemData(prev => ({
+                ...prev,
+                steps: prev.steps.map((s, i) => i === editingStepIndex ? updatedStep : s)
+            }));
+            setEditingStepIndex(null);
+        } else {
+            const newStep = buildStep(currentStep, problemData.steps.length);
+            setProblemData(prev => ({
+                ...prev,
+                steps: [...prev.steps, newStep]
+            }));
+        }
         
-        // Process the step answer - split by commas and clean up (only for non-coding problems)
-        const stepAnswer = currentStep.problemType === 'Coding' ? [] : 
-            (typeof currentStep.stepAnswer === 'string' 
-                ? currentStep.stepAnswer.split(',').map(a => a.trim()).filter(a => a)
-                : currentStep.stepAnswer);
-        
-        const stepId = currentStep.id || `${problemData.id || 'problem'}_step${problemData.steps.length + 1}`;
-        const newStep = {
-            ...currentStep,
-            id: stepId,
-            stepAnswer: stepAnswer,
-            choices: currentStep.problemType === 'MultipleChoice' ? 
-                (Array.isArray(currentStep.choices) ? currentStep.choices : [currentStep.choices]) : [],
-            // For coding problems, ensure we have the necessary fields
-            ...(currentStep.problemType === 'Coding' && {
-                language: 'python',
-                codeTemplate: currentStep.codeTemplate || 'def solution():\n    # Your code here\n    pass',
-                testCases: currentStep.testCases || []
-            })
-        };
-        
-        setProblemData(prev => ({
-            ...prev,
-            steps: [...prev.steps, newStep]
-        }));
-        
+        setCurrentStep({
+            id: '',
+            stepTitle: '',
+            stepBody: '',
+            problemType: 'TextBox',
+            answerType: 'string',
+            stepAnswer: '',
+            choices: [],
+            codeTemplate: '',
+            testCases: []
+        });
+    };
+
+    const startEditStep = (index) => {
+        const step = problemData.steps[index];
+        setCurrentStep({
+            ...step,
+            stepAnswer: Array.isArray(step.stepAnswer) ? step.stepAnswer.join(', ') : (step.stepAnswer || ''),
+            choices: Array.isArray(step.choices) ? step.choices : [],
+            codeTemplate: step.codeTemplate || '',
+            testCases: step.testCases || []
+        });
+        setEditingStepIndex(index);
+    };
+
+    const cancelEditStep = () => {
+        setEditingStepIndex(null);
         setCurrentStep({
             id: '',
             stepTitle: '',
@@ -298,18 +339,17 @@ const AddProblem = () => {
             return;
         }
         
-        // Validate that all steps have answers (except coding problems)
+        // Validate that all steps have answers (except coding and lesson steps)
         for (let i = 0; i < problemData.steps.length; i++) {
             const step = problemData.steps[i];
-            if (step.problemType !== 'Coding') {
-                if (!step.stepAnswer || step.stepAnswer.length === 0 || (step.stepAnswer.length === 1 && !step.stepAnswer[0].trim())) {
-                    alert(`Please enter an answer for step ${i + 1}: "${step.stepTitle}"`);
-                    return;
-                }
-            } else {
-                // For coding problems, validate that we have a code template
+            if (step.problemType === 'Coding') {
                 if (!step.codeTemplate || !step.codeTemplate.trim()) {
                     alert(`Please provide a code template for coding step ${i + 1}: "${step.stepTitle}"`);
+                    return;
+                }
+            } else if (step.problemType !== 'Lesson') {
+                if (!step.stepAnswer || step.stepAnswer.length === 0 || (step.stepAnswer.length === 1 && !step.stepAnswer[0].trim())) {
+                    alert(`Please enter an answer for step ${i + 1}: "${step.stepTitle}"`);
                     return;
                 }
             }
@@ -454,13 +494,24 @@ const AddProblem = () => {
                                     <Typography variant="subtitle1" style={{ fontWeight: 'bold' }}>
                                         Step {index + 1}: {step.stepTitle}
                                     </Typography>
-                                    <IconButton
-                                        onClick={() => removeStep(index)}
-                                        color="secondary"
-                                        size="small"
-                                    >
-                                        <DeleteIcon />
-                                    </IconButton>
+                                    <Box>
+                                        <IconButton
+                                            onClick={() => startEditStep(index)}
+                                            color="primary"
+                                            size="small"
+                                            title="Edit step"
+                                        >
+                                            <EditIcon />
+                                        </IconButton>
+                                        <IconButton
+                                            onClick={() => removeStep(index)}
+                                            color="secondary"
+                                            size="small"
+                                            title="Delete step"
+                                        >
+                                            <DeleteIcon />
+                                        </IconButton>
+                                    </Box>
                                 </Box>
                                 
                                 <Typography variant="body2" color="textSecondary" gutterBottom>
@@ -473,7 +524,7 @@ const AddProblem = () => {
                                     </Typography>
                                 )}
                                 
-                                {step.problemType !== 'Coding' && (
+                                {step.problemType !== 'Coding' && step.problemType !== 'Lesson' && (
                                     <Typography variant="body2" color="textSecondary">
                                         Answer: {Array.isArray(step.stepAnswer) ? step.stepAnswer.join(', ') : step.stepAnswer}
                                     </Typography>
@@ -543,11 +594,18 @@ const AddProblem = () => {
                             </div>
                         ))}
                         
-                        {/* Add Step Form */}
-                        <div className={classes.stepCard}>
-                            <Typography variant="subtitle1" gutterBottom>
-                                Add New Step
-                            </Typography>
+                        {/* Add / Edit Step Form */}
+                        <div className={classes.stepCard} style={editingStepIndex !== null ? { border: '2px solid #1976d2' } : {}}>
+                            <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
+                                <Typography variant="subtitle1" gutterBottom>
+                                    {editingStepIndex !== null ? `Edit Step ${editingStepIndex + 1}` : 'Add New Step'}
+                                </Typography>
+                                {editingStepIndex !== null && (
+                                    <Button size="small" onClick={cancelEditStep}>
+                                        Cancel Edit
+                                    </Button>
+                                )}
+                            </Box>
                             
                             <Grid container spacing={2}>
                                 <Grid item xs={12} sm={6}>
@@ -570,9 +628,11 @@ const AddProblem = () => {
                                             <MenuItem value="TextBox">Text Box</MenuItem>
                                             <MenuItem value="MultipleChoice">Multiple Choice</MenuItem>
                                             <MenuItem value="Coding">Coding</MenuItem>
+                                            <MenuItem value="Lesson">Lesson (No Answer)</MenuItem>
                                         </Select>
                                     </FormControl>
                                 </Grid>
+                                {currentStep.problemType !== 'Lesson' && (
                                 <Grid item xs={12} sm={6}>
                                     <FormControl fullWidth className={classes.textField}>
                                         <InputLabel shrink>Answer Type</InputLabel>
@@ -586,6 +646,7 @@ const AddProblem = () => {
                                         </Select>
                                     </FormControl>
                                 </Grid>
+                                )}
                                 <Grid item xs={12}>
                                     <TextField
                                         fullWidth
@@ -610,7 +671,7 @@ const AddProblem = () => {
                                         InputLabelProps={{ shrink: true }}
                                     />
                                 </Grid>
-                                {currentStep.problemType !== 'Coding' && (
+                                {currentStep.problemType !== 'Coding' && currentStep.problemType !== 'Lesson' && (
                                     <Grid item xs={12}>
                                         <TextField
                                             fullWidth
@@ -700,9 +761,9 @@ const AddProblem = () => {
                                         variant="contained"
                                         onClick={addStep}
                                         className={classes.addButton}
-                                        startIcon={<AddIcon />}
+                                        startIcon={editingStepIndex !== null ? <EditIcon /> : <AddIcon />}
                                     >
-                                        Add Step
+                                        {editingStepIndex !== null ? 'Save Changes' : 'Add Step'}
                                     </Button>
                                 </Grid>
                             </Grid>

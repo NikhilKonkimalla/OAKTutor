@@ -135,6 +135,33 @@ const SimpleCodeEditor = ({
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [evaluationState, setEvaluationState] = useState(null); // 'success', 'error', or null
   const [isCodeCorrect, setIsCodeCorrect] = useState(false);
+  
+  // Keystroke tracking state
+  const lastInputLengthRef = useRef(initialCode.length);
+  const lastKeystrokeTimeRef = useRef(null);
+
+  // Reset keystroke tracking when step changes
+  useEffect(() => {
+    // Flush buffer for previous step when step changes
+    return () => {
+      if (context?.firebase && context.firebase.flushKeystrokeBuffer) {
+        const problemID = context.problemID || "n/a";
+        const stepID = step?.id || "n/a";
+        context.firebase.flushKeystrokeBuffer(problemID, stepID);
+      }
+    };
+  }, [step?.id, context?.firebase, context?.problemID]);
+
+  // Flush keystroke buffer when component unmounts
+  useEffect(() => {
+    return () => {
+      if (context?.firebase && context.firebase.flushKeystrokeBuffer) {
+        const problemID = context.problemID || "n/a";
+        const stepID = step?.id || "n/a";
+        context.firebase.flushKeystrokeBuffer(problemID, stepID);
+      }
+    };
+  }, [context?.firebase, context?.problemID, step?.id]);
 
   // Update code when step changes
   useEffect(() => {
@@ -144,6 +171,9 @@ const SimpleCodeEditor = ({
       setFeedback("");
       setEvaluationState(null);
       setIsCodeCorrect(false);
+      // Reset keystroke tracking state
+      lastInputLengthRef.current = newCodeTemplate.length;
+      lastKeystrokeTimeRef.current = null;
       // Update input state
       if (setInputValState) {
         setInputValState(newCodeTemplate);
@@ -160,9 +190,44 @@ const SimpleCodeEditor = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onValidationReady, isCodeCorrect, feedback, code]);
 
+  // Helper function to track keystrokes
+  const trackKeystroke = (newCode) => {
+    const currentLength = newCode.length;
+    const previousLength = lastInputLengthRef.current;
+    const now = Date.now();
+    const timeSinceLastKeystroke = lastKeystrokeTimeRef.current ? now - lastKeystrokeTimeRef.current : 0;
+    
+    // Detect paste event: large text insertion (>20 characters at once for code)
+    const lengthChange = currentLength - previousLength;
+    const isPasteEvent = lengthChange > 20;
+    
+    // Log keystroke if Firebase is available
+    if (context?.firebase && context.firebase.logKeystroke) {
+      const problemID = context.problemID || "n/a";
+      const stepID = step?.id || "n/a";
+      
+      context.firebase.logKeystroke(
+        problemID,
+        stepID,
+        currentLength,
+        previousLength,
+        timeSinceLastKeystroke,
+        isPasteEvent,
+        false // Don't flush unless buffer is full
+      );
+    }
+    
+    lastInputLengthRef.current = currentLength;
+    lastKeystrokeTimeRef.current = now;
+  };
+
   const handleCodeChange = (event) => {
     const newCode = event.target.value;
     setCode(newCode);
+    
+    // Track keystroke for code editor
+    trackKeystroke(newCode);
+    
     // Update parent component state
     if (setInputValState) {
       setInputValState(newCode);
@@ -190,6 +255,9 @@ const SimpleCodeEditor = ({
       // Insert spaces at cursor position
       const newCode = code.substring(0, start) + spaces + code.substring(end);
       setCode(newCode);
+      
+      // Track keystroke for Tab key insertion
+      trackKeystroke(newCode);
       
       // Update parent component state
       if (setInputValState) {

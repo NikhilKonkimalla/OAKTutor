@@ -800,6 +800,7 @@ class ProblemCard extends React.Component {
                             </div>
                         )}
 
+                    {this.step.problemType !== 'Lesson' && (
                     <div className={classes.root}>
                         <ProblemInput
                             variabilization={chooseVariables(
@@ -829,8 +830,10 @@ class ProblemCard extends React.Component {
                             problemBody={this.problemSubTitle || ""}
                         />
                     </div>
+                    )}
                 </CardContent>
                 <CardActions>
+                    {this.step.problemType === 'Lesson' ? null : (
                     <Grid
                         container
                         spacing={0}
@@ -957,6 +960,7 @@ class ProblemCard extends React.Component {
                         </Grid>
                         <Grid item xs={false} sm={1} md={4} />
                     </Grid>
+                    )}
                 </CardActions>
             </Card>
         );

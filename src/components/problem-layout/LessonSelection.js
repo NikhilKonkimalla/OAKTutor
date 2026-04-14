@@ -7,7 +7,7 @@ import Paper from '@material-ui/core/Paper';
 import { withStyles } from '@material-ui/core/styles';
 import styles from './common-styles.js';
 import IconButton from '@material-ui/core/IconButton';
-import { ThemeContext, SITE_NAME, SHOW_COPYRIGHT, getCoursePlans } from '../../config/config.js';
+import { ThemeContext, SITE_NAME, SHOW_COPYRIGHT, getCoursePlans, getCustomLessonsForCourse } from '../../config/config.js';
 import Spacer from "../Spacer";
 import HelpOutlineOutlinedIcon from "@material-ui/icons/HelpOutlineOutlined";
 import { Typography } from "@material-ui/core";
@@ -120,6 +120,28 @@ class LessonSelection extends React.Component {
                                         </Button>
                                     </Box>
                                 )}
+                                {selectionMode === "lesson" && (
+                                    <Box mb={3}>
+                                        <Button
+                                            variant="contained"
+                                            color="primary"
+                                            startIcon={<AddIcon />}
+                                            onClick={() => this.props.history.push(`/courses/${courseNum}/add-lesson`)}
+                                            style={{
+                                                backgroundColor: '#1976d2',
+                                                color: '#ffffff',
+                                                padding: '12px 24px',
+                                                fontSize: '16px',
+                                                borderRadius: '8px',
+                                                boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                                                textTransform: 'none',
+                                                fontWeight: '600'
+                                            }}
+                                        >
+                                            Add New Lesson
+                                        </Button>
+                                    </Box>
+                                )}
                                 {
                                     IS_STAGING_OR_DEVELOPMENT && <BuildTimeIndicator/>
                                 }
@@ -168,9 +190,13 @@ class LessonSelection extends React.Component {
                                                 </center>
                                             </Grid>
                                         )
-                                    : this.coursePlans[this.props.courseNum].lessons.map((lesson, i) => {
-                                        return (
-                                            <Grid item xs={12} sm={6} md={4} key={i}>
+                                    : (() => {
+                                        const builtInLessons = this.coursePlans[this.props.courseNum].lessons;
+                                        const currentCourseName = this.coursePlans[this.props.courseNum].courseName;
+                                        const customLessons = getCustomLessonsForCourse(currentCourseName);
+                                        const allLessons = [...builtInLessons, ...customLessons];
+                                        return allLessons.map((lesson, i) => (
+                                            <Grid item xs={12} sm={6} md={4} key={lesson.id || i}>
     <center>
       <Paper className={classes.paper} style={{ position: 'relative' }}>
         {/* top-right “view all problems” button */}
@@ -203,8 +229,8 @@ class LessonSelection extends React.Component {
       </Paper>
     </center>
   </Grid>
-                                        )
-                                    })
+                                        ));
+                                    })()
                                 }
                             </Grid>
                             <Spacer/>
