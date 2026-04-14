@@ -10,7 +10,6 @@ Your project already has:
 - ✅ Environment variable support for configuration
 
 ## Step 1: Create a Firebase Project
-
 1. Go to the [Firebase Console](https://console.firebase.google.com/)
 2. Click **"Add project"** or **"Create a project"**
 3. Enter a project name (e.g., "oaktutor" or "oaktutor-dev")
