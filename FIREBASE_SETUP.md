@@ -1,5 +1,4 @@
 # Firebase Setup Guide for OAKTutor
-
 This guide will help you link your OAKTutor project to Firebase for data logging and storage.
 
 ## Current Setup Status
