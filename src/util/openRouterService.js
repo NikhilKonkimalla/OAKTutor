@@ -1,4 +1,4 @@
-import { OPENROUTER_API_KEY, OPENROUTER_API_URL } from '../config/config.js';
+import { OPENROUTER_WORKER_URL } from '../config/config.js';
 
 /**
  * Generate a hint using OpenRouter API
@@ -7,13 +7,10 @@ import { OPENROUTER_API_KEY, OPENROUTER_API_URL } from '../config/config.js';
  */
 export const generateHint = async (prompt) => {
     try {
-        const response = await fetch(OPENROUTER_API_URL, {
+        const response = await fetch(OPENROUTER_WORKER_URL, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': OPENROUTER_API_KEY,
-                'HTTP-Referer': window.location.origin,
-                'X-Title': 'OAKTutor Dynamic Hints'
             },
             body: JSON.stringify({
                 model: 'openai/gpt-4o-mini',
@@ -86,13 +83,10 @@ If there are errors:
 
 Write as if talking to a student - friendly, clear, and concise.`;
 
-        const response = await fetch(OPENROUTER_API_URL, {
+        const response = await fetch(OPENROUTER_WORKER_URL, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': OPENROUTER_API_KEY,
-                'HTTP-Referer': window.location.origin,
-                'X-Title': 'OAKTutor Code Evaluation'
             },
             body: JSON.stringify({
                 model: 'openai/gpt-4o-mini',

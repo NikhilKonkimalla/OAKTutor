@@ -56,6 +56,7 @@ jobs:
           REACT_APP_FIREBASE_CONFIG: ${{ secrets.PRODUCTION_FIREBASE_CONFIG }}
           CI: false
           REACT_APP_BUILD_TYPE: "production"
+          REACT_APP_OPENROUTER_WORKER_URL: ${{ secrets.OPENROUTER_WORKER_URL }}
           REACT_APP_COMMIT_HASH: ${{ github.sha }}
 
       - uses: actions/checkout@v2

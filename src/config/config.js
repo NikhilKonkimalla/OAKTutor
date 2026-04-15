@@ -136,9 +136,8 @@ const DYNAMIC_HINT_URL = process.env.AI_HINT_GENERATION_AWS_ENDPOINT;
 const DYNAMIC_HINT_TEMPLATE =
     "<{problem_title}.> <{problem_subtitle}.> <{question_title}.> <{question_subtitle}.> <Student's answer is: {student_answer}.> <The correct answer is: {correct_answer}.> Please give a hint for this.";
 
-// OpenRouter API Configuration
-const OPENROUTER_API_KEY = "Bearer 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";
-const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
+// OpenRouter API — requests go through the Cloudflare Worker; key never exposed client-side
+const OPENROUTER_WORKER_URL = process.env.REACT_APP_OPENROUTER_WORKER_URL || "";
 
 const MASTERY_THRESHOLD = 0.95;
 
@@ -262,6 +261,5 @@ export {
     DO_FOCUS_TRACKING,
     findLessonById,
     SHOW_NOT_CANVAS_WARNING,
-    OPENROUTER_API_KEY,
-    OPENROUTER_API_URL,
+    OPENROUTER_WORKER_URL,
 };
