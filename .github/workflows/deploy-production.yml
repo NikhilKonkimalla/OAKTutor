@@ -10,63 +10,35 @@ on:
 jobs:
   buildAndDeploy:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
-          persist-credentials: false
+          submodules: recursive
 
-      - run: git submodule update --init --recursive
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
 
-      - name: Save original git author and git email
-        run: |
-          echo "git_email=$(git log --format='%ae' HEAD^!)" >> $GITHUB_ENV
-          echo "git_name=$(git log --format='%an' HEAD^!)" >> $GITHUB_ENV
-
-      - uses: actions/setup-node@v2.4.1
-
-      - name: Change homepage in package.json
+      - name: Set homepage for GitHub Pages
         run: sed -i 's/place-holder/OATutor/g' package.json
 
-      - name: Cache node modules
-        uses: actions/cache@v3
-        env:
-            cache-name: cache-node-modules
-        with:
-            # npm cache files are stored in `~/.npm` on Linux/macOS
-            path: ~/.npm
-            key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/package-lock.json') }}
-            restore-keys: |
-                ${{ runner.os }}-build-${{ env.cache-name }}-
-                ${{ runner.os }}-build-
-                ${{ runner.os }}-
-
-      - name: Run CI install
+      - name: Install dependencies
         run: npm ci
 
-      - name: Run build
+      - name: Build
         run: npm run build
         env:
-          REACT_APP_FIREBASE_CONFIG: ${{ secrets.PRODUCTION_FIREBASE_CONFIG }}
           CI: false
-          REACT_APP_BUILD_TYPE: "production"
+          REACT_APP_BUILD_TYPE: production
           REACT_APP_OPENROUTER_WORKER_URL: ${{ secrets.OPENROUTER_WORKER_URL }}
           REACT_APP_COMMIT_HASH: ${{ github.sha }}
 
-      - uses: actions/checkout@v2
+      - name: Deploy to GitHub Pages
+        uses: JamesIves/github-pages-deploy-action@v4
         with:
-          ref: 'gh-pages'
-          path: 'gh-build'
-
-      - name: Push
-        run: |
-          cd gh-build
-          git rm -rf .
-          git clean -fxd
-          rsync -av ../build/ .
-          git add .
-          git config --local user.email "${{ env.git_email }}"
-          git config --local user.name "${{ env.git_name }}"
-          git diff --cached --quiet --exit-code && echo "no changes to platform, exiting early" && exit 0
-          git commit -m "deploy commit: CAHLR/OATutor@$GITHUB_SHA"
-          git push
+          folder: build
+          branch: gh-pages
