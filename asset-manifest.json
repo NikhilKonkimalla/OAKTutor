@@ -1,7 +1,7 @@
 {
   "files": {
     "main.css": "/OAKTutor/static/css/main.adc67cf3.css",
-    "main.js": "/OAKTutor/static/js/main.4b3fe669.js",
+    "main.js": "/OAKTutor/static/js/main.b3b1d1e8.js",
     "static/media/Symbola.svg": "/OAKTutor/static/media/Symbola.f647c9292a2da02d9ae8.svg",
     "static/media/Symbola.eot": "/OAKTutor/static/media/Symbola.d25fbd520f6558203fb4.eot",
     "static/media/Symbola.ttf": "/OAKTutor/static/media/Symbola.1ac5fa7f9b82ed4ce3f3.ttf",
@@ -9,10 +9,10 @@
     "static/media/Symbola.woff2": "/OAKTutor/static/media/Symbola.080d8bb6a36e8bd8966b.woff2",
     "index.html": "/OAKTutor/index.html",
     "main.adc67cf3.css.map": "/OAKTutor/static/css/main.adc67cf3.css.map",
-    "main.4b3fe669.js.map": "/OAKTutor/static/js/main.4b3fe669.js.map"
+    "main.b3b1d1e8.js.map": "/OAKTutor/static/js/main.b3b1d1e8.js.map"
   },
   "entrypoints": [
     "static/css/main.adc67cf3.css",
-    "static/js/main.4b3fe669.js"
+    "static/js/main.b3b1d1e8.js"
   ]
 }
