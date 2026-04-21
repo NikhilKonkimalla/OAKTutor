@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
-import { 
-    AppBar, 
-    Toolbar, 
-    Button, 
-    TextField, 
-    Grid, 
-    Box, 
-    Typography, 
-    Card, 
+import {
+    AppBar,
+    Toolbar,
+    Button,
+    TextField,
+    Grid,
+    Box,
+    Typography,
+    Card,
     CardContent,
     IconButton,
     Chip,
@@ -16,6 +16,7 @@ import {
 import { ArrowBack, Add, Delete } from '@material-ui/icons';
 import { useHistory } from 'react-router-dom';
 import BrandLogoNav from '@components/BrandLogoNav';
+import { saveCustomCourseToFirestore } from '../config/config.js';
 
 const useStyles = makeStyles((theme) => ({
     root: {
@@ -204,7 +205,7 @@ const AddCourse = () => {
         return result;
     };
 
-    const handleSaveCourse = () => {
+    const handleSaveCourse = async () => {
         try {
             // Generate a unique course ID
             const courseId = `course_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -223,23 +224,13 @@ const AddCourse = () => {
                 createdBy: 'user' // In a real app, this would be the actual user ID
             };
 
-            // Save to localStorage (in production, this would be sent to your backend)
+            // Save to localStorage as a local cache
             const savedCourses = JSON.parse(localStorage.getItem('customCourses') || '[]');
             savedCourses.push(newCourse);
             localStorage.setItem('customCourses', JSON.stringify(savedCourses));
 
-            // Log to Firebase if available (for analytics)
-            if (window.firebase) {
-                try {
-                    window.firebase.writeData('courseCreations', {
-                        courseName: courseData.courseName,
-                        lessonCount: courseData.lessons.length,
-                        timestamp: Date.now()
-                    });
-                } catch (error) {
-                    console.warn('Could not log to Firebase:', error);
-                }
-            }
+            // Save to Firestore so all users can see the course
+            await saveCustomCourseToFirestore(newCourse);
 
             console.log('Course saved successfully:', newCourse);
             alert(`Course "${courseData.courseName}" saved successfully! You can now access it from the course selection page.`);

@@ -3,11 +3,12 @@ import courses from "../content-sources/oatutor/coursePlans.json";
 import { calculateSemester } from "../util/calculateSemester.js";
 import { SITE_NAME } from "@common/global-config";
 import { cleanObjectKeys } from "../util/cleanObject";
+import { getApps, getApp } from "firebase/app";
+import { getFirestore, collection, getDocs, doc, setDoc } from "firebase/firestore";
 
-// Load custom courses from localStorage
+// Load custom courses from localStorage (local cache only)
 const getCustomCourses = () => {
     try {
-        // Check if we're in a browser environment
         if (typeof window !== 'undefined' && window.localStorage) {
             const customCourses = localStorage.getItem('customCourses');
             return customCourses ? JSON.parse(customCourses) : [];
@@ -19,7 +20,27 @@ const getCustomCourses = () => {
     }
 };
 
-// Function to get all courses (default + custom)
+// Fetch shared custom courses from Firestore (visible to all users)
+export const fetchCustomCoursesFromFirestore = async () => {
+    try {
+        if (!getApps().length) return [];
+        const db = getFirestore(getApp());
+        const snapshot = await getDocs(collection(db, 'customCourses'));
+        return snapshot.docs.map(d => d.data());
+    } catch (error) {
+        console.warn('Error fetching courses from Firestore:', error);
+        return [];
+    }
+};
+
+// Save a custom course to Firestore so all users can see it
+export const saveCustomCourseToFirestore = async (course) => {
+    if (!getApps().length) return;
+    const db = getFirestore(getApp());
+    await setDoc(doc(db, 'customCourses', course.id), course);
+};
+
+// Function to get all courses (default + local cache)
 const getAllCourses = () => {
     const customCourses = getCustomCourses();
     return [...courses, ...customCourses];

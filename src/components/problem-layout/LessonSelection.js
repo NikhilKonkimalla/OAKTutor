@@ -7,7 +7,7 @@ import Paper from '@material-ui/core/Paper';
 import { withStyles } from '@material-ui/core/styles';
 import styles from './common-styles.js';
 import IconButton from '@material-ui/core/IconButton';
-import { ThemeContext, SITE_NAME, SHOW_COPYRIGHT, getCoursePlans, getCustomLessonsForCourse } from '../../config/config.js';
+import { ThemeContext, SITE_NAME, SHOW_COPYRIGHT, getCoursePlans, getCustomLessonsForCourse, fetchCustomCoursesFromFirestore } from '../../config/config.js';
 import Spacer from "../Spacer";
 import HelpOutlineOutlinedIcon from "@material-ui/icons/HelpOutlineOutlined";
 import { Typography } from "@material-ui/core";
@@ -39,14 +39,26 @@ class LessonSelection extends React.Component {
         this.user = context.user || {}
         this.isPrivileged = !!this.user.privileged
 
-        this.coursePlans = getCoursePlans().filter(({ editor }) => !!!editor);
         this.togglePopup = this.togglePopup.bind(this);
 
         this.state = {
             preparedRemoveProgress: false,
             removedProgress: false,
-            showPopup: false
+            showPopup: false,
+            coursePlans: getCoursePlans().filter(({ editor }) => !!!editor)
         }
+    }
+
+    componentDidMount() {
+        fetchCustomCoursesFromFirestore().then(firestoreCourses => {
+            if (firestoreCourses.length === 0) return;
+            const builtIn = getCoursePlans().filter(({ editor }) => !!!editor);
+            const builtInIds = new Set(builtIn.map(c => c.id));
+            const newCourses = firestoreCourses.filter(c => !builtInIds.has(c.id));
+            if (newCourses.length > 0) {
+                this.setState(prev => ({ coursePlans: [...prev.coursePlans, ...newCourses] }));
+            }
+        });
     }
 
     togglePopup = () => {
@@ -71,7 +83,7 @@ class LessonSelection extends React.Component {
         const selectionMode = courseNum == null ? "course" : "lesson"
         const { showPopup } = this.state;
 
-        if (selectionMode === "lesson" && courseNum >= this.coursePlans.length) {
+        if (selectionMode === "lesson" && courseNum >= this.state.coursePlans.length) {
             return <Box width={'100%'} textAlign={'center'} pt={4} pb={4}>
                 <Typography variant={'h3'}>Course <code>{courseNum}</code> is not valid!</Typography>
             </Box>
@@ -150,7 +162,7 @@ class LessonSelection extends React.Component {
                             <Spacer/>
                             <Grid container spacing={3}>
                                 {selectionMode === "course"
-                                    ? this.coursePlans
+                                    ? this.state.coursePlans
                                         .map((course, i) =>
                                             <Grid item xs={12} sm={6} md={4} key={course.courseName}>
                                                 <center>
@@ -191,8 +203,8 @@ class LessonSelection extends React.Component {
                                             </Grid>
                                         )
                                     : (() => {
-                                        const builtInLessons = this.coursePlans[this.props.courseNum].lessons;
-                                        const currentCourseName = this.coursePlans[this.props.courseNum].courseName;
+                                        const builtInLessons = this.state.coursePlans[this.props.courseNum].lessons;
+                                        const currentCourseName = this.state.coursePlans[this.props.courseNum].courseName;
                                         const customLessons = getCustomLessonsForCourse(currentCourseName);
                                         const allLessons = [...builtInLessons, ...customLessons];
                                         return allLessons.map((lesson, i) => (
